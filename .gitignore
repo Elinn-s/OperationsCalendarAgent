@@ -1,0 +1,17 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets and local config
+.env
+.streamlit/secrets.toml
+
+# Local data (SQLite, uploads) — not committed; use Supabase in production
+data/
