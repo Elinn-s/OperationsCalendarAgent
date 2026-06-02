@@ -1,9 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from html import escape
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 # ─── Linear-inspired design tokens ────────────────────────────────────────────
 _CSS = """
@@ -276,35 +275,6 @@ div.stButton > button[kind="primary"]:hover {
 </style>
 """
 
-# Active-state JS injected via components.html (allow-same-origin lets it access
-# window.parent.document to highlight the current page's nav link).
-_ACTIVE_NAV_JS = """<script>
-setTimeout(function() {
-  try {
-    var path = window.parent.location.pathname.toLowerCase();
-    var links = Array.from(
-      window.parent.document.querySelectorAll('[data-testid="stPageLink"] a')
-    );
-    var otherHrefs = links.slice(1).map(function(a) {
-      return (a.getAttribute('href') || '').toLowerCase().replace(/^\//, '');
-    }).filter(Boolean);
-    links.forEach(function(a, i) {
-      var href = (a.getAttribute('href') || '').toLowerCase().replace(/^\//, '');
-      var active = (i === 0)
-        ? !otherHrefs.some(function(h) { return h && path.includes(h); })
-        : Boolean(href && path.includes(href));
-      if (active) {
-        a.style.background   = '#eef0fc';
-        a.style.color        = '#5e6ad2';
-        a.style.fontWeight   = '700';
-        a.style.borderRadius = '7px';
-      }
-    });
-  } catch (e) {}
-}, 400);
-</script>"""
-
-
 def apply_backend_style() -> None:
     st.markdown(_CSS, unsafe_allow_html=True)
 
@@ -313,13 +283,11 @@ def top_nav() -> None:
     # Brand label + nav links in a single row
     cols = st.columns([1.1, 1, 1, 1, 8])
     cols[0].markdown('<span class="lnr-brand">OPS AGENT</span>', unsafe_allow_html=True)
-    cols[1].page_link("main.py", label="营运概况", icon="📊")
+    cols[1].page_link("streamlit_app.py", label="营运概况", icon="📊")
     cols[2].page_link("pages/1_Import_Notification.py", label="导入通告", icon="📋")
     cols[3].page_link("pages/2_Pre_Registration.py", label="预录信息", icon="📅")
     # Divider line below nav
     st.markdown('<div class="lnr-nav-divider"></div>', unsafe_allow_html=True)
-    # Highlight active link by styling via parent DOM (same-origin iframe access)
-    components.html(_ACTIVE_NAV_JS, height=0, scrolling=False)
 
 
 def page_header(title: str, description: str, badge: str | None = None) -> None:
@@ -358,6 +326,11 @@ def muted_note(text: str) -> None:
 def status_badge(status: str | None) -> str:
     status_text = status or "未填写"
     class_name = {
+        "草稿": "lnr-status-pending",
+        "已发送": "lnr-status-running",
+        "已回执": "lnr-status-running",
+        "已完成": "lnr-status-running",
+        "已逾期": "lnr-status-overdue",
         "执行中": "lnr-status-running",
         "已截止": "lnr-status-overdue",
         "待发布": "lnr-status-pending",

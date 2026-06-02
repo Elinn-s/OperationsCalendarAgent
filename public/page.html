@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>营运通告 Agent</title>
+  <link rel="stylesheet" href="/public/styles.css" />
+</head>
+<body>
+  <div id="app" class="app">
+    <div class="shell">
+      <header class="topbar">
+        <div>
+          <div class="brand">OPS AGENT</div>
+          <h1>营运通告管理</h1>
+          <p>PDF 通告归档、历史查询、预录提醒与月度发布观察。</p>
+        </div>
+        <div class="userbox">
+          <input id="topEmail" type="email" placeholder="提醒邮箱 / 操作人" />
+          <button id="saveEmailBtn" type="button">保存邮箱</button>
+          <button id="logoutBtn" type="button">切换邮箱</button>
+        </div>
+      </header>
+
+      <div id="toast" class="toast"></div>
+
+      <nav class="nav-tabs" aria-label="功能栏目">
+        <button class="active" type="button" data-view="overview">Overview</button>
+        <button type="button" data-view="import">PDF 导入</button>
+        <button type="button" data-view="history">历史查询</button>
+        <button type="button" data-view="plans">预录备忘</button>
+      </nav>
+
+      <section id="view-overview" class="view">
+        <section class="grid kpis">
+          <article class="card"><div class="kpi-title">本月通告总数</div><div class="kpi-value" id="kpiMonthTotal">0</div></article>
+          <article class="card"><div class="kpi-title">执行中 / 已回执</div><div class="kpi-value" id="kpiRunning">0</div></article>
+          <article class="card"><div class="kpi-title">一周内截止</div><div class="kpi-value" id="kpiSoon">0</div></article>
+          <article class="card"><div class="kpi-title">逾期</div><div class="kpi-value" id="kpiOverdue">0</div></article>
+        </section>
+        <section class="grid overview-grid">
+          <article class="card">
+            <div class="section-title"><h2>通告类型分布</h2><span class="badge" id="typeCount">0</span></div>
+            <div class="pie-wrap">
+              <div id="typePie" class="pie-chart"></div>
+              <div id="typePieLegend" class="pie-legend"></div>
+            </div>
+            <div id="typeSummary" class="metric-list"></div>
+          </article>
+          <article class="card">
+            <div class="section-title"><h2>本月集中时间</h2><span class="badge" id="monthNoticeCount">0</span></div>
+            <div id="monthTimeline" class="metric-list"></div>
+          </article>
+          <article class="card">
+            <div class="section-title"><h2>需要关注</h2><span class="badge amber" id="attentionCount">0</span></div>
+            <div id="attentionList" class="mini-list"></div>
+          </article>
+        </section>
+      </section>
+
+      <section id="view-import" class="view grid main" hidden>
+        <section class="card">
+          <div class="section-title">
+            <h2>PDF 上传识别</h2>
+            <span class="meta">识别后进入详情表单，核对后保存入库。</span>
+          </div>
+          <div class="toolbar">
+            <input id="pdfFile" type="file" accept="application/pdf" />
+            <button class="primary" id="extractPdfBtn" type="button">识别 PDF 并填表</button>
+          </div>
+          <p class="hint">这里是正式通告入口，不提供手工新增；识别结果可编辑，用于兜底修正 OCR/AI 提取偏差。</p>
+        </section>
+        <section class="card">
+          <div class="section-title">
+            <h2>识别结果去向</h2>
+            <span class="badge">详情表单</span>
+          </div>
+          <div class="empty-state">识别完成后会自动跳转到“历史查询”的通告详情表单。你可以先核对、修改，再保存入库。</div>
+        </section>
+      </section>
+
+      <section id="view-history" class="view grid main" hidden>
+        <section class="card">
+          <div class="section-title">
+            <h2>历史记录查询</h2>
+            <button id="refreshBtn" type="button">刷新</button>
+          </div>
+          <div class="toolbar">
+            <input id="searchInput" placeholder="搜索：标题 / 编号 / 负责人" />
+            <select id="statusFilter">
+              <option value="">全部状态</option>
+              <option>草稿</option>
+              <option>执行中</option>
+              <option>已回执</option>
+              <option>已完成</option>
+              <option>已逾期</option>
+            </select>
+            <button id="searchBtn" type="button" class="primary">搜索</button>
+          </div>
+          <div id="noticeList" class="notice-list"></div>
+        </section>
+
+        <section class="card" id="detailCard" hidden>
+          <div class="section-title">
+            <h2 id="detailTitle">通告详情</h2>
+            <span class="badge" id="detailBadge">未选择</span>
+          </div>
+          <div id="detailMeta" class="meta detail-meta"></div>
+          <div id="historyEmpty" class="empty-state">请先搜索并点击一条历史记录。</div>
+          <form id="noticeForm" hidden>
+            <div class="form-grid notice-fields"></div>
+            <div class="actions">
+              <button type="button" id="editNoticeBtn">编辑</button>
+              <button type="button" id="deleteBtn" class="danger">删除</button>
+              <button type="button" id="cancelBtn">取消编辑</button>
+              <button type="submit" class="primary">保存修改</button>
+            </div>
+          </form>
+          <h3>完整历史</h3>
+          <div id="history" class="timeline"></div>
+        </section>
+      </section>
+
+      <section id="view-plans" class="view grid two-col" hidden>
+        <section class="card">
+          <div class="section-title">
+            <h2>预录备忘</h2>
+            <button id="reloadPlansBtn" type="button">刷新预录</button>
+          </div>
+          <label class="span-2">粘贴活动/通告内容
+            <textarea id="planRawText" placeholder="例：活动名称：春节物料配货&#10;负责人：张三&#10;计划发布日期：2026-01-20"></textarea>
+          </label>
+          <div class="actions">
+            <button id="extractPlanBtn" type="button">智能识别文案</button>
+          </div>
+          <form id="planForm">
+            <div class="form-grid">
+              <label>活动名称 *<input id="plan_activity_name" required /></label>
+              <label>负责人<input id="plan_owner" /></label>
+              <label>计划发布日期<input id="plan_planned_publish_date" type="date" /></label>
+              <label>状态
+                <select id="plan_status">
+                  <option>已预录</option>
+                  <option>已编写</option>
+                  <option>已发布</option>
+                </select>
+              </label>
+              <label>邮件提醒
+                <select id="plan_reminder_enabled">
+                  <option value="1">开启</option>
+                  <option value="0">关闭</option>
+                </select>
+              </label>
+              <label>邮件提醒日<input id="plan_publish_reminder_date" type="date" /></label>
+              <label class="span-2">通告内容 / 备忘<textarea id="plan_notification_content"></textarea></label>
+            </div>
+            <div class="actions">
+              <button type="button" id="newPlanBtn">新建预录</button>
+              <button type="button" id="editPlanBtn">编辑预录</button>
+              <button type="button" id="deletePlanBtn" class="danger">删除预录</button>
+              <button type="button" id="cancelPlanEditBtn">取消编辑</button>
+              <button type="submit" class="primary">保存预录</button>
+              <button type="button" id="markWrittenBtn">标记已编写</button>
+              <button type="button" class="primary" id="markPublishedBtn">标记已发布</button>
+              <button type="button" id="clearPlanMarkBtn">取消标记</button>
+            </div>
+          </form>
+          <p class="hint">开启邮件提醒后，系统默认在计划发布日期（DDL）前 7 天提醒：记得编写通告/发布通告。</p>
+        </section>
+
+        <section class="card">
+          <div class="section-title">
+            <h2>预录备忘清单</h2>
+            <span class="badge" id="planCount">0</span>
+          </div>
+          <div id="planList" class="mini-list"></div>
+        </section>
+      </section>
+    </div>
+  </div>
+
+  <script src="/public/js/shared.js" defer></script>
+  <script src="/public/js/notice-form.js" defer></script>
+  <script src="/public/js/overview.js" defer></script>
+  <script src="/public/js/history.js" defer></script>
+  <script src="/public/js/import.js" defer></script>
+  <script src="/public/js/plans.js" defer></script>
+  <script src="/public/js/app.js" defer></script>
+</body>
+</html>

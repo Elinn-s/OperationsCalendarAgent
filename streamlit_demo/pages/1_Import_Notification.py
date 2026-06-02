@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 
-from app.db import generate_system_no, get_conn, init_db, log_action
-from app.services.dify_client import extract_fields
-from app.services.pdf_parser import extract_text
-from app import storage
-from app.ui import apply_backend_style, page_header, section_title, top_nav
+from storenotificationcircula.db.database import generate_system_no, get_conn, init_db, log_action
+from storenotificationcircula.services.dify_client import extract_fields
+from storenotificationcircula.services.pdf_parser import extract_text
+from storenotificationcircula.services.reminders import process_deadline_reminders
+from storenotificationcircula.services import storage
+from storenotificationcircula.ui.streamlit_ui import apply_backend_style, page_header, section_title, top_nav
 
 init_db()
 st.set_page_config(page_title="导入通告", page_icon="📋", layout="wide")
@@ -23,6 +23,9 @@ page_header(
     "搜索历史记录，上传 PDF 自动识别，并在同一详情面板中完成核对、修改和删除。",
     "PDF OCR / 历史检索",
 )
+deadline_scan_notice = st.session_state.pop("deadline_scan_notice", None)
+if deadline_scan_notice:
+    st.info(deadline_scan_notice)
 
 WARNING_WINDOW_DAYS = 5
 STATUS_OPTIONS = ["执行中", "已截止"]
@@ -84,8 +87,29 @@ def _select_history_record(record) -> None:
     title = record["title"] or record["doc_ref"] or "无标题"
     st.session_state["selected_history_id"] = record["notification_id"]
     st.session_state["history_detail_notice"] = f"已打开「{title}」的详情。"
-    st.session_state.pop("import_candidate", None)
+    _clear_import_workflow()
     st.rerun()
+
+
+def _clear_import_workflow() -> None:
+    st.session_state.pop("import_candidate", None)
+    st.session_state.pop("import_file_signature", None)
+    st.session_state.pop("import_system_no", None)
+    st.session_state["import_upload_version"] = st.session_state.get("import_upload_version", 0) + 1
+
+
+def _scan_deadline_reminders_after_save(notification_id: str) -> None:
+    try:
+        stats = process_deadline_reminders(send_emails=True, notification_id=notification_id)
+    except Exception as exc:
+        st.session_state["deadline_scan_notice"] = f"通告已保存，但自动提醒扫描失败：{exc}"
+        return
+
+    st.session_state["deadline_scan_notice"] = (
+        "已自动扫描截止提醒："
+        f"发送 {stats['sent']} 封，失败 {stats['failed']} 封，"
+        f"跳过 {stats['skipped']} 项。"
+    )
 
 
 section_title("历史搜索")
@@ -94,7 +118,7 @@ with st.form("search"):
     q_doc = s1.text_input("标题 / 档案编号", label_visibility="collapsed", placeholder="标题 / 档案编号")
     q_dept = s2.text_input("部门 / 负责人", label_visibility="collapsed", placeholder="部门 / 负责人")
     q_status = s3.selectbox("状态", ["全部", *STATUS_OPTIONS], label_visibility="collapsed")
-    searched = s4.form_submit_button("🔍 搜索", type="primary", use_container_width=True)
+    searched = s4.form_submit_button("🔍 搜索", type="primary", width="stretch")
 
     with st.expander("更多筛选"):
         s5, s6 = st.columns(2)
@@ -110,7 +134,7 @@ query_history_id = None if searched else st.query_params.get("history_id")
 if query_history_id and query_history_id != st.session_state.get("selected_history_id"):
     st.session_state["selected_history_id"] = query_history_id
     st.session_state["history_detail_notice"] = "已打开历史通告详情。"
-    st.session_state.pop("import_candidate", None)
+    _clear_import_workflow()
 
 left_col, right_col = st.columns(2)
 
@@ -157,10 +181,10 @@ with right_col:
             if total_rows > HISTORY_PAGE_SIZE:
                 page_info, prev_col, next_col = st.columns([3, 1, 1])
                 page_info.caption(f"共 {total_rows} 条，当前第 {current_page} / {total_pages} 页")
-                if prev_col.button("上一页", disabled=current_page <= 1, use_container_width=True):
+                if prev_col.button("上一页", disabled=current_page <= 1, width="stretch"):
                     st.session_state["history_page"] = current_page - 1
                     st.rerun()
-                if next_col.button("下一页", disabled=current_page >= total_pages, use_container_width=True):
+                if next_col.button("下一页", disabled=current_page >= total_pages, width="stretch"):
                     st.session_state["history_page"] = current_page + 1
                     st.rerun()
             else:
@@ -192,7 +216,7 @@ with right_col:
                     table_df,
                     column_config={"选择": st.column_config.CheckboxColumn("选择")},
                     disabled=[col for col in table_df.columns if col != "选择"],
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     key=f"history_results_table_{st.session_state.get('history_table_version', 0)}",
                 )
@@ -222,7 +246,7 @@ with right_col:
                     if st.button(
                         row_label,
                         key=f"history_row_{record['notification_id']}_{current_page}_{index}",
-                        use_container_width=True,
+                        width="stretch",
                     ):
                         _select_history_record(record)
                 selected_ids = []
@@ -282,7 +306,8 @@ with right_col:
 
 with left_col:
     section_title("导入通告")
-    uploaded = st.file_uploader("上传通告 PDF", type=["pdf"])
+    upload_version = st.session_state.get("import_upload_version", 0)
+    uploaded = st.file_uploader("上传通告 PDF", type=["pdf"], key=f"import_pdf_upload_{upload_version}")
 
     if uploaded:
         file_signature = f"{uploaded.name}:{uploaded.size}"
@@ -331,17 +356,6 @@ section_title("通告详情")
 history_notice = st.session_state.pop("history_detail_notice", None)
 if history_notice:
     st.success(history_notice)
-    components.html(
-        """
-        <script>
-        const anchor = window.parent.document.getElementById("history-detail-anchor");
-        if (anchor) {
-            anchor.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-        </script>
-        """,
-        height=0,
-    )
 candidate = st.session_state.get("import_candidate")
 selected_history_id = st.session_state.get("selected_history_id")
 
@@ -391,9 +405,7 @@ if candidate:
         cancelled = cancel_col.form_submit_button("取消本次识别")
 
     if cancelled:
-        st.session_state.pop("import_candidate", None)
-        st.session_state.pop("import_file_signature", None)
-        st.session_state.pop("import_system_no", None)
+        _clear_import_workflow()
         st.info("已取消本次识别，未保存通告。")
         st.rerun()
 
@@ -413,21 +425,21 @@ if candidate:
                 """INSERT INTO notifications
                    (notification_id, doc_ref, system_no, notice_type, department, drafter, reviewer, approver,
                     title, purpose, target_scope, effective_start, effective_end,
-                    status, tags, file_path, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    deadline, status, tags, file_path, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     nid, doc_ref, system_no, notice_type, department, drafter, reviewer, approver,
                     title, purpose, target_scope,
                     effective_start.isoformat(),
+                    effective_end.isoformat() if effective_end else None,
                     effective_end.isoformat() if effective_end else None,
                     status_opt, json.dumps(tags, ensure_ascii=False), storage_key,
                     now, now,
                 ),
             )
         log_action(nid, "上传并确认", f"档案编号: {doc_ref}")
-        st.session_state.pop("import_candidate", None)
-        st.session_state.pop("import_file_signature", None)
-        st.session_state.pop("import_system_no", None)
+        _scan_deadline_reminders_after_save(nid)
+        _clear_import_workflow()
 
         warnings = []
         if effective_end:
@@ -518,11 +530,23 @@ elif selected_history_id:
             )
             new_tags_raw = st.text_input("标签（逗号分隔）", value=", ".join(tags))
 
-            saved = st.form_submit_button("保存修改", type="primary")
+            edit_save_col, edit_cancel_col = st.columns(2)
+            saved = edit_save_col.form_submit_button("保存修改", type="primary")
+            edit_cancelled = edit_cancel_col.form_submit_button("取消修改")
+
+        if edit_cancelled:
+            st.session_state["history_detail_notice"] = "已取消修改，未保存任何更改。"
+            st.rerun()
 
         if saved:
-            if new_status == "执行中" and new_effective_end and new_effective_end < date.today():
+            if not new_title.strip():
+                st.error("通告标题不能为空。")
+            elif new_effective_end and new_effective_end < new_effective_start:
+                st.error("执行截止时间不能早于执行开始时间。")
+            elif new_status == "执行中" and new_effective_end and new_effective_end < date.today():
                 st.error("执行截止时间已早于今天，不能保存为「执行中」。请把执行截止改到今天或以后，或勾选「无执行截止日期」。")
+            elif new_status == "已截止" and not new_effective_end:
+                st.error("保存为「已截止」时必须填写执行截止时间。")
             else:
                 now = datetime.now().isoformat()
                 new_tags = [tag.strip() for tag in new_tags_raw.split(",") if tag.strip()]
@@ -532,7 +556,7 @@ elif selected_history_id:
                            SET doc_ref = ?, system_no = ?, department = ?, notice_type = ?,
                                drafter = ?, reviewer = ?, approver = ?, title = ?, purpose = ?,
                                target_scope = ?, effective_start = ?, effective_end = ?,
-                               status = ?, tags = ?, updated_at = ?
+                               deadline = ?, status = ?, tags = ?, updated_at = ?
                            WHERE notification_id = ?""",
                         (
                             new_doc_ref.strip(), new_system_no.strip(), new_department.strip(), new_notice_type,
@@ -540,11 +564,13 @@ elif selected_history_id:
                             new_title.strip(), new_purpose.strip(), new_target_scope.strip(),
                             new_effective_start.isoformat(),
                             new_effective_end.isoformat() if new_effective_end else None,
+                            new_effective_end.isoformat() if new_effective_end else None,
                             new_status, json.dumps(new_tags, ensure_ascii=False), now,
                             r["notification_id"],
                         ),
                     )
                 log_action(r["notification_id"], "修改通告", "更新历史记录字段")
+                _scan_deadline_reminders_after_save(r["notification_id"])
                 st.success("已保存修改")
                 st.rerun()
 

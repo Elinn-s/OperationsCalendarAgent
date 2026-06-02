@@ -5,10 +5,10 @@ import uuid
 from datetime import date, datetime, timedelta
 
 import streamlit as st
-import streamlit.components.v1 as components
 
-from app.db import generate_system_no, get_conn, init_db
-from app.ui import apply_backend_style, page_header, section_title, top_nav
+from storenotificationcircula.db.database import generate_system_no, get_conn, init_db
+from storenotificationcircula.services.reminders import process_deadline_reminders
+from storenotificationcircula.ui.streamlit_ui import apply_backend_style, page_header, section_title, top_nav
 
 init_db()
 st.set_page_config(page_title="预录信息", page_icon="📅", layout="wide")
@@ -19,6 +19,9 @@ page_header(
     "预录已知活动、责任人和通告内容，在制定与发布节点到达前进行提醒。",
     "计划提醒 / 发布通告",
 )
+deadline_scan_notice = st.session_state.pop("deadline_scan_notice", None)
+if deadline_scan_notice:
+    st.info(deadline_scan_notice)
 
 STATUSES = ["已预录", "待发布", "已取消"]
 NOTICE_TYPE_OPTIONS = ["安全合规", "日常营运", "活动通知", "人事行政", "其他"]
@@ -140,8 +143,22 @@ def _event_display_label(event: dict) -> str:
     return f"{color_prefix.get(event['label'], event['label'])} {event['activity_name']}|{event['owner']}"
 
 
+def _scan_deadline_reminders_after_save(notification_id: str) -> None:
+    try:
+        stats = process_deadline_reminders(send_emails=True, notification_id=notification_id)
+    except Exception as exc:
+        st.session_state["deadline_scan_notice"] = f"通告已发布，但自动提醒扫描失败：{exc}"
+        return
+
+    st.session_state["deadline_scan_notice"] = (
+        "已自动扫描截止提醒："
+        f"发送 {stats['sent']} 封，失败 {stats['failed']} 封，"
+        f"跳过 {stats['skipped']} 项。"
+    )
+
+
 def _show_plan_summary(label: str, rows: list[dict]) -> None:
-    with st.popover(f"{label}：{len(rows)}", use_container_width=True):
+    with st.popover(f"{label}：{len(rows)}", width="stretch"):
         st.metric(label, len(rows))
         if not rows:
             st.info("暂无记录。")
@@ -151,7 +168,7 @@ def _show_plan_summary(label: str, rows: list[dict]) -> None:
             if st.button(
                 button_label,
                 key=f"summary_{label}_{row['id']}",
-                use_container_width=True,
+                width="stretch",
             ):
                 st.session_state["selected_plan_id"] = row["id"]
                 st.session_state["pre_reg_detail_notice"] = f"已打开「{row['activity_name']}」的详情。"
@@ -218,8 +235,8 @@ with st.form("pre_registration_form"):
     publish_reminder_date = d3.date_input("发布提醒日（默认提前 1 周）", value=fields["publish_reminder_date"], key=f"pub_remind_{form_version}")
 
     save_pre_col, save_draft_col = st.columns(2)
-    saved_pre_reg = save_pre_col.form_submit_button("保存预录", type="primary", use_container_width=True)
-    saved_draft = save_draft_col.form_submit_button("保存草稿（待发布）", use_container_width=True)
+    saved_pre_reg = save_pre_col.form_submit_button("保存预录", type="primary", width="stretch")
+    saved_draft = save_draft_col.form_submit_button("保存草稿（待发布）", width="stretch")
 
 if saved_pre_reg or saved_draft:
     if not activity_name.strip():
@@ -315,7 +332,7 @@ for week in calendar.Calendar(firstweekday=0).monthdatescalendar(calendar_year, 
             if col.button(
                 _event_display_label(event),
                 key=f"calendar_event_{day_key}_{event['plan_id']}_{event['label']}_{index}",
-                use_container_width=True,
+                width="stretch",
             ):
                 st.session_state["selected_plan_id"] = event["plan_id"]
                 st.session_state.pop("pending_delete_plan_id", None)
@@ -329,17 +346,6 @@ section_title("预录信息详情")
 detail_notice = st.session_state.pop("pre_reg_detail_notice", None)
 if detail_notice:
     st.success(detail_notice)
-    components.html(
-        """
-        <script>
-        const anchor = window.parent.document.getElementById("pre-reg-detail-anchor");
-        if (anchor) {
-            anchor.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-        </script>
-        """,
-        height=0,
-    )
 selected_plan_id = st.session_state.get("selected_plan_id")
 selected_plan = plans_by_id.get(selected_plan_id)
 
@@ -408,8 +414,8 @@ with st.expander("发布为正式通告"):
                         """INSERT INTO notifications
                            (notification_id, doc_ref, system_no, notice_type, department, drafter, reviewer, approver,
                             title, purpose, target_scope, effective_start, effective_end,
-                            status, tags, file_path, created_at, updated_at)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                            deadline, status, tags, file_path, created_at, updated_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         (
                             nid,
                             doc_ref,
@@ -423,6 +429,7 @@ with st.expander("发布为正式通告"):
                             publish_content.strip(),
                             publish_target_scope.strip(),
                             publish_effective_start.isoformat(),
+                            publish_effective_end.isoformat() if publish_effective_end else None,
                             publish_effective_end.isoformat() if publish_effective_end else None,
                             "执行中",
                             json.dumps(["预录发布"], ensure_ascii=False),
@@ -440,6 +447,7 @@ with st.expander("发布为正式通告"):
                         (nid, "预录发布", f"预录活动: {selected_plan['activity_name']}", now),
                     )
                 st.success(f"已发布为正式通告，系统编号：`{publish_system_no}`")
+                _scan_deadline_reminders_after_save(nid)
                 st.session_state.pop("selected_plan_id", None)
                 st.session_state.pop("pending_delete_plan_id", None)
                 st.session_state["pre_reg_detail_notice"] = f"已发布为正式通告，系统编号：{publish_system_no}。"
