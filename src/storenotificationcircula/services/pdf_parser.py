@@ -1,9 +1,11 @@
 import fitz  # PyMuPDF
 import numpy as np
 import cv2
+import gc
 from pathlib import Path
 
 _engine = None
+_RENDER_SCALE = 1.35
 
 
 def _get_engine():
@@ -14,26 +16,30 @@ def _get_engine():
     return _engine
 
 
-def _pdf_to_images(pdf_path: str | Path) -> list[np.ndarray]:
-    doc = fitz.open(str(pdf_path))
-    images = []
-    for page in doc:
-        mat = fitz.Matrix(2.0, 2.0)
-        pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
-        img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
-        images.append(cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-    doc.close()
-    return images
+def _page_to_image(page: fitz.Page) -> np.ndarray:
+    mat = fitz.Matrix(_RENDER_SCALE, _RENDER_SCALE)
+    pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB, alpha=False)
+    img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
+    return cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
 
 def extract_text(pdf_path: str | Path) -> str:
-    images = _pdf_to_images(pdf_path)
     engine = _get_engine()
     pages = []
-    for img in images:
-        result, _ = engine(img)
-        lines = [item[1] for item in result if item[1].strip()] if result else []
-        pages.append("\n".join(lines))
+    doc = fitz.open(str(pdf_path))
+    try:
+        for page in doc:
+            img = _page_to_image(page)
+            try:
+                result, _ = engine(img)
+                lines = [item[1] for item in result if item[1].strip()] if result else []
+                pages.append("\n".join(lines))
+            finally:
+                del img
+                gc.collect()
+    finally:
+        doc.close()
+
     text = "\n\n".join(pages)
     if not text.strip():
         raise ValueError("OCR 未识别到任何文字，请检查 PDF 是否可读")

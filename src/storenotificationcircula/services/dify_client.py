@@ -21,7 +21,7 @@ def _get_api_key() -> str:
 
 
 def _get_base_url() -> str:
-    return _secret("DIFY_BASE_URL").rstrip("/")
+    return (_secret("DIFY_BASE_URL") or _secret("DIFY_API_URL")).rstrip("/")
 
 
 # 映射标准名称
