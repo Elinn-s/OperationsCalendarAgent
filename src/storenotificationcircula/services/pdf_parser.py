@@ -1,46 +1,32 @@
-import fitz  # PyMuPDF
-import numpy as np
-import cv2
-import gc
+import os
 from pathlib import Path
 
-_engine = None
-_RENDER_SCALE = 1.35
+import fitz  # PyMuPDF
 
 
-def _get_engine():
-    global _engine
-    if _engine is None:
-        from rapidocr_onnxruntime import RapidOCR
-        _engine = RapidOCR()
-    return _engine
+def _local_ocr_enabled() -> bool:
+    return os.getenv("ENABLE_LOCAL_OCR", "false").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _page_to_image(page: fitz.Page) -> np.ndarray:
-    mat = fitz.Matrix(_RENDER_SCALE, _RENDER_SCALE)
-    pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB, alpha=False)
-    img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
-    return cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-
-
-def extract_text(pdf_path: str | Path) -> str:
-    engine = _get_engine()
-    pages = []
+def _extract_text_layer(pdf_path: str | Path) -> str:
+    pages: list[str] = []
     doc = fitz.open(str(pdf_path))
     try:
         for page in doc:
-            img = _page_to_image(page)
-            try:
-                result, _ = engine(img)
-                lines = [item[1] for item in result if item[1].strip()] if result else []
-                pages.append("\n".join(lines))
-            finally:
-                del img
-                gc.collect()
+            pages.append(page.get_text("text").strip())
     finally:
         doc.close()
+    return "\n\n".join(page for page in pages if page)
 
-    text = "\n\n".join(pages)
-    if not text.strip():
-        raise ValueError("OCR 未识别到任何文字，请检查 PDF 是否可读")
-    return text
+
+def extract_text(pdf_path: str | Path) -> str:
+    text = _extract_text_layer(pdf_path)
+    if text.strip():
+        return text
+
+    if not _local_ocr_enabled():
+        raise ValueError("线上环境未开启本地 OCR。扫描版 PDF 请使用 Plan B 本地 OCR 启动方式识别。")
+
+    from storenotificationcircula.services.local_ocr.pdf_parser import extract_text_with_ocr
+
+    return extract_text_with_ocr(pdf_path)
