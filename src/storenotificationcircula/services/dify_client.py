@@ -6,14 +6,7 @@ load_dotenv()
 
 
 def _secret(key: str) -> str:
-    val = os.getenv(key, "")
-    if not val:
-        try:
-            import streamlit as st
-            val = st.secrets.get(key, "")
-        except Exception:
-            pass
-    return val
+    return os.getenv(key, "")
 
 
 def _get_api_key() -> str:

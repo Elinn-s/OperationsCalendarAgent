@@ -19,23 +19,15 @@ EMAIL_PATTERN = re.compile(r"[^@\s,;，；]+@[^@\s,;，；]+\.[^@\s,;，；]+")
 
 
 def _secret(key: str, default: str = "") -> str:
-    value = os.getenv(key, default)
-    if value:
-        return value
-    try:
-        import streamlit as st
-
-        return st.secrets.get(key, default)
-    except Exception:
-        return default
+    return os.getenv(key, default)
 
 
 def app_base_url() -> str:
-    return _secret("APP_BASE_URL", "http://localhost:8501").rstrip("/")
+    return _secret("APP_BASE_URL", "http://localhost:8000").rstrip("/")
 
 
 def build_ack_link(token: str) -> str:
-    return f"{app_base_url()}/?ack_token={token}"
+    return f"{app_base_url()}/app?ack_token={token}"
 
 
 def parse_recipients(raw_text: str) -> list[dict[str, str]]:
@@ -198,7 +190,7 @@ def confirm_ack_token(token: str) -> tuple[str, dict[str, Any] | None]:
                 """
                 UPDATE notifications
                 SET status = '已回执', updated_at = ?
-                WHERE notification_id = ? AND status IN ('执行中', '已逾期')
+                WHERE notification_id = ? AND status IN ('执行中')
                 """,
                 (now, row["notification_id"]),
             )

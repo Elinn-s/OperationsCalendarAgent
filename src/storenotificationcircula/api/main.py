@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from storenotificationcircula.api.routes import acknowledgements, health, notifications, plans, reminders
+from storenotificationcircula.api.routes import acknowledgements, email_settings, health, notifications, plans, reminders
 from storenotificationcircula.db.database import init_db
 
 app = FastAPI(title="Store Notification Circulation API", version="0.1.0")
@@ -23,6 +23,7 @@ app.include_router(notifications.router, prefix="/notifications", tags=["notific
 app.include_router(plans.router, prefix="/plans", tags=["plans"])
 app.include_router(acknowledgements.router, prefix="/ack", tags=["acknowledgements"])
 app.include_router(reminders.router, prefix="/reminders", tags=["reminders"])
+app.include_router(email_settings.router, prefix="/email-settings", tags=["email-settings"])
 
 if PUBLIC_DIR.exists():
     app.mount("/public", StaticFiles(directory=PUBLIC_DIR), name="public")

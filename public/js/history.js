@@ -8,13 +8,13 @@
 
   async function loadHistory(id) {
     const root = $("history");
-    root.innerHTML = `<div class="meta">加载中...</div>`;
+    root.innerHTML = `<div class="meta">載入中...</div>`;
     const rows = await request(`/notifications/${id}/history`);
-    root.innerHTML = rows.length ? "" : `<div class="meta">暂无历史。</div>`;
+    root.innerHTML = rows.length ? "" : `<div class="meta">暫無歷史。</div>`;
     for (const row of rows) {
       const item = document.createElement("div");
       item.className = "timeline-item";
-      item.innerHTML = `<b>${escapeHtml(row.type || "")} · ${escapeHtml(row.action || "")}</b><br>${escapeHtml(row.time || "")} · ${escapeHtml(row.actor || "系统")}<br>${escapeHtml(row.detail || "")}`;
+      item.innerHTML = `<b>${escapeHtml(row.type || "")} · ${escapeHtml(row.action || "")}</b><br>${escapeHtml(row.time || "")} · ${escapeHtml(row.actor || "系統")}<br>${escapeHtml(row.detail || "")}`;
       root.appendChild(item);
     }
   }
@@ -30,12 +30,8 @@
 
   function renderList() {
     const root = $("noticeList");
-    if (!App.state.historySearched) {
-      root.innerHTML = `<div class="meta">请输入条件后点击“搜索”查看历史记录。</div>`;
-      return;
-    }
-    const rows = filteredNotices();
-    root.innerHTML = rows.length ? "" : `<div class="meta">暂无通告。</div>`;
+    const rows = filteredNotices().slice(0, 300);
+    root.innerHTML = rows.length ? "" : `<div class="meta">暫無通告。</div>`;
     for (const n of rows) {
       const deadline = n.deadline || n.effective_end || "";
       const btn = document.createElement("button");
@@ -43,12 +39,12 @@
       btn.type = "button";
       btn.innerHTML = `
         <div class="row">
-          <div class="title">${escapeHtml(n.title || "(无标题)")}</div>
-          <span class="${statusBadgeClass(n.status, deadline)}">${escapeHtml(n.status || "未填")}</span>
+          <div class="title">${escapeHtml(n.title || "(無標題)")}</div>
+          <span class="${statusBadgeClass(n.status, deadline)}">${escapeHtml(statusLabel(n.status, deadline))}</span>
         </div>
-        <div class="meta">${escapeHtml(n.system_no || "未编号")} · 截止 ${escapeHtml(deadline || "未设置")}</div>
-        <div class="meta">导入时间 ${escapeHtml(formatDateTime(n.created_at))}</div>
-        <div class="meta">${escapeHtml(n.owner || n.issuer || n.department || "未设置负责人")}</div>
+        <div class="meta">${escapeHtml(n.system_no || "未編號")} · 截止 ${escapeHtml(deadline || "未設定")}</div>
+        <div class="meta">匯入時間 ${escapeHtml(formatDateTime(n.created_at))}</div>
+        <div class="meta">${escapeHtml(n.owner || n.issuer || n.department || "未設定負責人")}</div>
       `;
       btn.addEventListener("click", () => selectNotice(n.notification_id));
       root.appendChild(btn);
@@ -81,29 +77,44 @@
       App.state.selectedId = result.notification_id || App.state.selectedId;
       App.state.importDraft = null;
       let reminderText = "";
-      if (shouldAskReminder && confirm("是否对 DDL 进行邮件提醒？")) {
+      if (shouldAskReminder && confirm("是否對 DDL 進行郵件提醒？")) {
         const stats = await request(`/notifications/${App.state.selectedId}/scan-reminders`, { method: "POST" });
-        reminderText = ` 已扫描提醒：发送 ${stats.sent || 0}，失败 ${stats.failed || 0}，跳过 ${stats.skipped || 0}。`;
+        reminderText = ` 已掃描提醒：發送 ${stats.sent || 0}，失敗 ${stats.failed || 0}，跳過 ${stats.skipped || 0}。`;
       }
-      showToast((isImportDraft ? "识别通告已保存入库。" : "通告修改已保存。") + reminderText);
+      showToast((isImportDraft ? "識別通告已保存入庫。" : "通告修改已保存。") + reminderText);
       await loadNotifications();
       if (App.state.selectedId) await selectNotice(App.state.selectedId);
     } catch (err) {
-      showToast(`保存失败：${err.message}`);
+      showToast(`保存失敗：${err.message}`);
     }
   }
 
   async function deleteNotice() {
-    if (!App.state.selectedId || !confirm("确认删除当前通告？")) return;
+    if (!App.state.selectedId || !confirm("確認刪除當前通告？")) return;
     try {
       await request(`/notifications/${App.state.selectedId}?actor_email=${encodeURIComponent(App.state.email)}`, { method: "DELETE" });
       App.state.selectedId = null;
       App.state.currentNotice = null;
-      showToast("已删除通告。");
+      showToast("已刪除通告。");
       await loadNotifications();
       resetNoticeDetail("history");
     } catch (err) {
-      showToast(`删除失败：${err.message}`);
+      showToast(`刪除失敗：${err.message}`);
+    }
+  }
+
+  async function sendAckEmails() {
+    if (!App.state.selectedId) {
+      showToast("請先選擇一條通告。");
+      return;
+    }
+    if (!confirm("確認向未回執收件人發送回執郵件？")) return;
+    try {
+      const stats = await request(`/ack/notifications/${App.state.selectedId}/send`, { method: "POST" });
+      showToast(`回執郵件已處理：檢查 ${stats.checked || 0}，發送 ${stats.sent || 0}，失敗 ${stats.failed || 0}，跳過 ${stats.skipped || 0}。`);
+      await loadHistory(App.state.selectedId);
+    } catch (err) {
+      showToast(`發送回執郵件失敗：${err.message}`);
     }
   }
 
@@ -111,13 +122,13 @@
     if (App.state.currentNotice) {
       fillNoticeForm("history", App.state.currentNotice);
       setNoticeEditMode(false);
-      showToast("已撤销未保存修改。");
+      showToast("已撤銷未保存修改。");
       return;
     }
     if (App.state.importDraft) {
       fillNoticeForm("history", App.state.importDraft);
       setNoticeEditMode(true);
-      showToast("已恢复识别结果。");
+      showToast("已恢復識別結果。");
     }
   }
 
@@ -127,14 +138,15 @@
     selectNotice,
     saveNotice,
     deleteNotice,
+    sendAckEmails,
     cancelNoticeEdit,
     enableEdit() {
       if (!App.state.selectedId && !App.state.importDraft) {
-        showToast("请先选择一条通告。");
+        showToast("請先選擇一條通告。");
         return;
       }
       setNoticeEditMode(true);
-      showToast("已进入编辑模式。");
+      showToast("已進入編輯模式。");
     },
     search() {
       App.state.historySearched = true;

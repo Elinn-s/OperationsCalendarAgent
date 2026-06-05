@@ -1,7 +1,7 @@
 (function () {
   function applyExtractedFields(fields) {
     const draft = {
-      status: "执行中",
+      status: "草稿",
       notice_type: fields.notice_type || "其他",
       owner: fields.owner || App.state.email,
       reminder_email: App.state.email,
@@ -37,18 +37,18 @@
     fillNoticeForm("history", draft);
     setNoticeEditMode(true);
     History.renderList();
-    showToast("PDF 识别完成，已填入通告详情。请核对后保存入库。");
+    showToast("PDF 識別完成，已填入通告詳情。請核對後保存入庫。");
   }
 
   async function uploadPdfForExtract() {
     const file = $("pdfFile").files[0];
     if (!file) {
-      showToast("请先选择 PDF 文件。");
+      showToast("請先選擇 PDF 文件。");
       return;
     }
     $("extractPdfBtn").disabled = true;
-    $("extractPdfBtn").textContent = "识别中...";
-    showToast("正在识别 PDF，请稍候。首次 OCR 可能较慢。");
+    $("extractPdfBtn").textContent = "識別中...";
+    showToast("正在識別 PDF，請稍候。首次 OCR 可能較慢。");
     try {
       const res = await fetch(`/notifications/extract-pdf?filename=${encodeURIComponent(file.name)}`, {
         method: "POST",
@@ -63,10 +63,10 @@
       const data = await res.json();
       applyExtractedFields(data.fields || {});
     } catch (err) {
-      showToast(`PDF 识别失败：${err.message}`);
+      showToast(`PDF 識別失敗：${err.message}。如果是掃描版 PDF，請使用本地 OCR Plan B 啟動後再導入。`);
     } finally {
       $("extractPdfBtn").disabled = false;
-      $("extractPdfBtn").textContent = "识别 PDF 并填表";
+      $("extractPdfBtn").textContent = "識別 PDF 並填表";
     }
   }
 

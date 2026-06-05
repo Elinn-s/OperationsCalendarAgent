@@ -11,6 +11,17 @@
     return "";
   }
 
+  function defaultPlanReminderDays() {
+    return (App.state.emailSettings && App.state.emailSettings.settings && App.state.emailSettings.settings.plan_reminder_days) || "7";
+  }
+
+  function maxReminderDays(raw) {
+    const values = String(raw || "7").replace("，", ",").split(",")
+      .map((part) => Number(part.trim()))
+      .filter((value) => Number.isFinite(value) && value >= 0);
+    return values.length ? Math.max(...values) : 7;
+  }
+
   function planStatusSelectClass(status) {
     if (status === "已发布") return "inline-status status-published";
     if (status === "已编写") return "inline-status status-written";
@@ -20,7 +31,7 @@
   function defaultReminderDate(plannedDate) {
     if (!plannedDate) return "";
     const d = new Date(plannedDate + "T00:00:00");
-    d.setDate(d.getDate() - 7);
+    d.setDate(d.getDate() - maxReminderDays($("plan_reminder_days").value || defaultPlanReminderDays()));
     return d.toISOString().slice(0, 10);
   }
 
@@ -46,6 +57,7 @@
       "plan_status",
       "plan_reminder_enabled",
       "plan_publish_reminder_date",
+      "plan_reminder_days",
       "plan_notification_content",
     ].forEach((id) => {
       $(id).disabled = !canEdit;
@@ -62,7 +74,7 @@
   function renderPlans() {
     $("planCount").textContent = App.state.plans.length;
     const root = $("planList");
-    root.innerHTML = App.state.plans.length ? "" : `<div class="meta">暂无预录。</div>`;
+    root.innerHTML = App.state.plans.length ? "" : `<div class="meta">暫無預錄。</div>`;
     for (const plan of App.state.plans) {
       const btn = document.createElement("button");
       btn.type = "button";
@@ -70,13 +82,13 @@
       btn.innerHTML = `
         <div class="row">
           <div class="title">${escapeHtml(plan.activity_name || "(未命名)")}</div>
-          <select class="${planStatusSelectClass(plan.status)}" data-plan-status-id="${plan.id}" aria-label="修改预录状态">
-            ${["已预录", "已编写", "已发布"].map((status) => `<option${status === (plan.status || "已预录") ? " selected" : ""}>${status}</option>`).join("")}
+          <select class="${planStatusSelectClass(plan.status)}" data-plan-status-id="${plan.id}" aria-label="修改預錄狀態">
+            ${["已预录", "已编写", "已发布"].map((status) => `<option value="${status}"${status === (plan.status || "已预录") ? " selected" : ""}>${statusLabel(status)}</option>`).join("")}
           </select>
         </div>
-        <div class="meta">计划发布 ${escapeHtml(plan.planned_publish_date || "未设置")} · ${escapeHtml(plan.owner || "未设置负责人")}</div>
-        <div class="meta">预录时间 ${escapeHtml(formatDateTime(plan.created_at))}</div>
-        <div class="meta">邮件提醒 ${Number(plan.reminder_enabled == null ? 1 : plan.reminder_enabled) ? "开启" : "关闭"} · 提醒日 ${escapeHtml(plan.publish_reminder_date || "未设置")}</div>
+        <div class="meta">計劃發佈 ${escapeHtml(plan.planned_publish_date || "未設定")} · ${escapeHtml(plan.owner || "未設定負責人")}</div>
+        <div class="meta">預錄時間 ${escapeHtml(formatDateTime(plan.created_at))}</div>
+        <div class="meta">郵件提醒 ${Number(plan.reminder_enabled == null ? 1 : plan.reminder_enabled) ? "開啟" : "關閉"} · 提醒日 ${escapeHtml(plan.publish_reminder_date || "未設定")} · 提前 ${escapeHtml(plan.reminder_days || defaultPlanReminderDays())} 天</div>
       `;
       btn.addEventListener("click", () => selectPlan(plan.id));
       root.appendChild(btn);
@@ -95,6 +107,7 @@
     $("plan_owner").value = plan.owner || "";
     $("plan_planned_publish_date").value = (plan.planned_publish_date || "").slice(0, 10);
     $("plan_publish_reminder_date").value = (plan.publish_reminder_date || "").slice(0, 10);
+    $("plan_reminder_days").value = plan.reminder_days || "";
     $("plan_reminder_enabled").value = String(Number(plan.reminder_enabled == null ? 1 : plan.reminder_enabled));
     $("plan_status").value = plan.status || "已预录";
     $("plan_notification_content").value = plan.notification_content || "";
@@ -108,6 +121,7 @@
     $("plan_owner").value = App.state.email;
     $("plan_planned_publish_date").value = "";
     $("plan_publish_reminder_date").value = "";
+    $("plan_reminder_days").value = "";
     $("plan_reminder_enabled").value = "1";
     $("plan_status").value = "已预录";
     $("plan_notification_content").value = "";
@@ -117,25 +131,25 @@
 
   async function deletePlan() {
     if (!App.state.selectedPlanId) {
-      showToast("请先选择要删除的预录。");
+      showToast("請先選擇要刪除的預錄。");
       return;
     }
-    if (!confirm("确认删除当前预录？")) return;
+    if (!confirm("確認刪除當前預錄？")) return;
     try {
       await request(`/plans/${App.state.selectedPlanId}`, { method: "DELETE" });
-      showToast("预录已删除。");
+      showToast("預錄已刪除。");
       App.state.selectedPlanId = null;
       clearPlanForm();
       await loadPlans();
     } catch (err) {
-      showToast(`删除预录失败：${err.message}`);
+      showToast(`刪除預錄失敗：${err.message}`);
     }
   }
 
   async function extractPlanText() {
     const text = $("planRawText").value.trim();
     if (!text) {
-      showToast("请先粘贴预录文案。");
+      showToast("請先貼上預錄文案。");
       return;
     }
     try {
@@ -144,20 +158,21 @@
       $("plan_activity_name").value = fields.activity_name || "";
       $("plan_owner").value = fields.owner || App.state.email;
       $("plan_planned_publish_date").value = fields.planned_publish_date || "";
+      $("plan_reminder_days").value = "";
       $("plan_publish_reminder_date").value = fields.publish_reminder_date || defaultReminderDate(fields.planned_publish_date);
       $("plan_reminder_enabled").value = "1";
       $("plan_status").value = fields.status || "已预录";
       $("plan_notification_content").value = fields.notification_content || text;
       setPlanEditMode(true);
-      showToast("预录文案已识别，请核对后保存。");
+      showToast("預錄文案已識別，請核對後保存。");
     } catch (err) {
-      showToast(`预录识别失败：${err.message}`);
+      showToast(`預錄識別失敗：${err.message}`);
     }
   }
 
   function collectPlanPayload() {
     const name = $("plan_activity_name").value.trim();
-    if (!name) throw new Error("活动名称不能为空");
+    if (!name) throw new Error("活動名稱不能為空");
     return {
       activity_name: name,
       owner: $("plan_owner").value.trim(),
@@ -167,6 +182,7 @@
       notification_content: $("plan_notification_content").value.trim(),
       status: $("plan_status").value,
       reminder_enabled: Number($("plan_reminder_enabled").value),
+      reminder_days: $("plan_reminder_days").value.trim(),
       actor_email: App.state.email,
       reminder_email: App.state.email,
     };
@@ -185,42 +201,42 @@
         App.state.selectedPlanId = result.id;
       }
       let reminderText = "";
-      if (isReminderDue(payload) && confirm("邮件提醒日已到，是否现在发送这条预录提醒？")) {
+      if (isReminderDue(payload) && confirm("郵件提醒日已到，是否現在發送這條預錄提醒？")) {
         const stats = await request(`/plans/${savedPlanId}/scan-reminders`, { method: "POST" });
-        reminderText = ` 已扫描提醒：发送 ${stats.sent || 0}，失败 ${stats.failed || 0}，跳过 ${stats.skipped || 0}。`;
+        reminderText = ` 已掃描提醒：發送 ${stats.sent || 0}，失敗 ${stats.failed || 0}，跳過 ${stats.skipped || 0}。`;
       }
-      showToast("预录已保存。" + reminderText);
+      showToast("預錄已保存。" + reminderText);
       await loadPlans();
       setPlanEditMode(false);
     } catch (err) {
-      showToast(`保存预录失败：${err.message}`);
+      showToast(`保存預錄失敗：${err.message}`);
     }
   }
 
   async function markPlanStatus(status) {
     if (!App.state.selectedPlanId) {
-      showToast("请先选择一个预录。");
+      showToast("請先選擇一個預錄。");
       return;
     }
     try {
       $("plan_status").value = status;
       const payload = collectPlanPayload();
       await request(`/plans/${App.state.selectedPlanId}`, { method: "PUT", body: JSON.stringify(payload) });
-      showToast(`预录已标记为：${status}。`);
+      showToast(`預錄已標記為：${statusLabel(status)}。`);
       await loadPlans();
     } catch (err) {
-      showToast(`标记失败：${err.message}`);
+      showToast(`標記失敗：${err.message}`);
     }
   }
 
   function cancelPlanEdit() {
     if (App.state.selectedPlanId) {
       selectPlan(App.state.selectedPlanId);
-      showToast("已撤销未保存的预录修改。");
+      showToast("已撤銷未保存的預錄修改。");
       return;
     }
     clearPlanForm();
-    showToast("已清空新建预录表单。");
+    showToast("已清空新建預錄表單。");
   }
 
   async function updatePlanStatusFromList(planId, status) {
@@ -236,14 +252,15 @@
         notification_content: plan.notification_content || "",
         status,
         reminder_enabled: Number(plan.reminder_enabled == null ? 1 : plan.reminder_enabled),
+        reminder_days: plan.reminder_days || "",
         actor_email: App.state.email,
         reminder_email: App.state.email || plan.reminder_email || "",
       };
       await request(`/plans/${planId}`, { method: "PUT", body: JSON.stringify(payload) });
-      showToast(`预录已更新为：${status}。`);
+      showToast(`預錄已更新為：${statusLabel(status)}。`);
       await loadPlans();
     } catch (err) {
-      showToast(`修改预录状态失败：${err.message}`);
+      showToast(`修改預錄狀態失敗：${err.message}`);
       await loadPlans();
     }
   }
@@ -269,11 +286,11 @@
     syncReminderDateFromDdl,
     enableEdit() {
       if (!App.state.selectedPlanId) {
-        showToast("请先选择一个预录。");
+        showToast("請先選擇一個預錄。");
         return;
       }
       setPlanEditMode(true);
-      showToast("已进入预录编辑模式。");
+      showToast("已進入預錄編輯模式。");
     },
   };
 }());

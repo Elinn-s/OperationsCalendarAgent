@@ -15,11 +15,15 @@
       selectedPlanId: null,
       importDraft: null,
       historySearched: false,
+      emailSettings: null,
+      calendarDate: new Date(),
+      ackToken: null,
+      initialParams: Object.fromEntries(new URLSearchParams(window.location.search).entries()),
     },
     fields: [
       "system_no", "doc_ref", "title", "status", "notice_type", "issuer", "owner",
       "owner_role", "department", "effective_start", "deadline", "target_scope",
-      "impact_store", "impact_region", "impact_role", "reminder_email", "description"
+      "impact_store", "impact_region", "impact_role", "reminder_email", "reminder_days", "description"
     ],
   };
 
@@ -50,13 +54,41 @@
   };
 
   window.formatDateTime = function formatDateTime(raw) {
-    if (!raw) return "未记录";
+    if (!raw) return "未記錄";
     return String(raw).replace("T", " ").slice(0, 19);
+  };
+
+  window.statusLabel = function statusLabel(status, deadline) {
+    const labels = {
+      "草稿": "草稿",
+      "执行中": "執行中",
+      "已回执": "已回執",
+      "已完成": "已完成",
+      "已逾期": "執行中 · 已逾期",
+      "已预录": "已預錄",
+      "已编写": "已編寫",
+      "已发布": "已發佈",
+    };
+    const base = labels[status] || status || "未填";
+    const days = daysLeft(deadline);
+    if (["执行中", "已回执"].includes(status) && days < 0) return `${base} · 已逾期`;
+    if (["执行中", "已回执"].includes(status) && days >= 0 && days <= 7) return `${base} · 即將截止`;
+    return base;
+  };
+
+  window.noticeTypeLabel = function noticeTypeLabel(type) {
+    return ({
+      "安全合规": "安全合規",
+      "日常营运": "日常營運",
+      "活动通知": "活動通知",
+      "人事行政": "人事行政",
+      "其他": "其他",
+    }[type]) || type || "其他";
   };
 
   window.statusBadgeClass = function statusBadgeClass(status, deadline) {
     const days = daysLeft(deadline);
-    if (status === "已逾期" || days < 0) return "badge red";
+    if (days < 0) return "badge red";
     if (days >= 0 && days <= 7) return "badge amber";
     if (status === "执行中" || status === "已回执" || status === "已完成") return "badge green";
     return "badge";

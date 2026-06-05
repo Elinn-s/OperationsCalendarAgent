@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 
 from storenotificationcircula.services.ack import app_base_url
 from storenotificationcircula.db.database import get_conn
-from storenotificationcircula.services.notifier import send_email
+from storenotificationcircula.services.email.sender import send_email
+from storenotificationcircula.services.email.settings import default_contact_emails, get_setting
 
 load_dotenv()
 
@@ -17,21 +18,20 @@ EMAIL_PATTERN = re.compile(r"[^@\s,;，；]+@[^@\s,;，；]+\.[^@\s,;，；]+")
 
 
 def _secret(key: str, default: str = "") -> str:
-    value = os.getenv(key, default)
-    if value:
-        return value
-    try:
-        import streamlit as st
-
-        return st.secrets.get(key, default)
-    except Exception:
-        return default
+    return os.getenv(key, default)
 
 
 def _reminder_days() -> set[int]:
-    raw = _secret("REMINDER_DAYS", "7")
+    return _parse_days(_setting("notification_reminder_days", _secret("REMINDER_DAYS", "7")))
+
+
+def _plan_reminder_days() -> set[int]:
+    return _parse_days(_setting("plan_reminder_days", "7"))
+
+
+def _parse_days(raw: str) -> set[int]:
     days: set[int] = set()
-    for part in raw.replace("，", ",").split(","):
+    for part in str(raw or "").replace("，", ",").split(","):
         part = part.strip()
         if not part:
             continue
@@ -42,29 +42,24 @@ def _reminder_days() -> set[int]:
     return days or {7}
 
 
+def _setting(key: str, default: str = "") -> str:
+    return get_setting(key, default)
+
+
+def _row_reminder_days(row: dict[str, Any], default_days: set[int]) -> set[int]:
+    raw = row.get("reminder_days")
+    return _parse_days(raw) if raw else default_days
+
+
 def _split_emails(raw: str) -> list[str]:
     return sorted({match.group(0).lower() for match in EMAIL_PATTERN.finditer(raw or "")})
 
 
 def _notification_link(notification_id: str) -> str:
-    return f"{app_base_url()}/Import_Notification?history_id={notification_id}"
+    return f"{app_base_url()}/app?notification_id={notification_id}"
 
 
 def _already_logged(conn, notification_id: str, reminder_type: str, reminder_date: str, recipient_email: str) -> bool:
-    if reminder_type == "提前一周提醒":
-        row = conn.execute(
-            """
-            SELECT id
-            FROM reminder_log
-            WHERE notification_id = ?
-              AND reminder_type = ?
-              AND COALESCE(recipient_email, '') = ?
-            LIMIT 1
-            """,
-            (notification_id, reminder_type, recipient_email or ""),
-        ).fetchone()
-        return bool(row)
-
     row = conn.execute(
         """
         SELECT id
@@ -123,7 +118,7 @@ def _target_recipients(conn, row: dict[str, Any]) -> list[str]:
     emails = {ack["email"].strip().lower() for ack in ack_rows if ack["email"]}
     emails.update(_split_emails(row.get("owner") or ""))
     emails.update(_split_emails(row.get("issuer") or ""))
-    return sorted(emails)
+    return sorted(emails) or default_contact_emails()
 
 
 def _escalation_recipients() -> list[str]:
@@ -158,7 +153,7 @@ def _plan_recipients(row: dict[str, Any]) -> list[str]:
     recipients = set(_split_emails(row.get("reminder_email") or ""))
     recipients.update(_split_emails(row.get("owner") or ""))
     recipients.update(_escalation_recipients())
-    return sorted(recipients)
+    return sorted(recipients) or default_contact_emails()
 
 
 def _send_plan_reminder(
@@ -211,10 +206,11 @@ def process_plan_reminders(send_emails: bool = True, plan_id: int | None = None)
         for raw_row in rows:
             row = dict(raw_row)
             stats["checked"] += 1
+            plan_days = max(_row_reminder_days(row, _plan_reminder_days()))
             publish_reminder_date = row.get("publish_reminder_date")
             if not publish_reminder_date and row.get("planned_publish_date"):
                 try:
-                    publish_reminder_date = (date.fromisoformat(str(row["planned_publish_date"])[:10]) - timedelta(days=7)).isoformat()
+                    publish_reminder_date = (date.fromisoformat(str(row["planned_publish_date"])[:10]) - timedelta(days=plan_days)).isoformat()
                 except ValueError:
                     publish_reminder_date = ""
             reminders = [
@@ -277,7 +273,7 @@ def process_deadline_reminders(send_emails: bool = True, notification_id: str | 
         sql = """
             SELECT *
             FROM notifications
-            WHERE status IN ('执行中', '已回执', '已逾期')
+            WHERE status IN ('执行中', '已回执')
               AND COALESCE(deadline, effective_end) IS NOT NULL
         """
         params: list[str] = []
@@ -300,26 +296,8 @@ def process_deadline_reminders(send_emails: bool = True, notification_id: str | 
             link = _notification_link(row["notification_id"])
             recipients = _target_recipients(conn, row)
 
+            reminder_days = _row_reminder_days(row, _reminder_days())
             if days_left < 0:
-                if row.get("status") != "已逾期":
-                    conn.execute(
-                        "UPDATE notifications SET status = '已逾期', updated_at = ? WHERE notification_id = ?",
-                        (datetime.now().isoformat(), row["notification_id"]),
-                    )
-                    conn.execute(
-                        """
-                        INSERT INTO audit_log (notification_id, action, detail, actor, timestamp)
-                        VALUES (?, ?, ?, ?, ?)
-                        """,
-                        (
-                            row["notification_id"],
-                            "自动标记逾期",
-                            f"截止日期 {deadline.isoformat()} 已过期",
-                            "系统",
-                            datetime.now().isoformat(),
-                        ),
-                    )
-                    stats["marked_overdue"] += 1
                 reminder_type = "逾期升级"
                 recipients = sorted(set(recipients + _escalation_recipients()))
                 subject = f"[逾期升级] {title}"
@@ -342,12 +320,12 @@ def process_deadline_reminders(send_emails: bool = True, notification_id: str | 
                     f"负责人：{row.get('owner') or '未填'}\n"
                     f"查看链接：{link}\n"
                 )
-            elif 0 < days_left <= max(reminder_days):
-                reminder_type = "提前一周提醒"
+            elif days_left in reminder_days:
+                reminder_type = f"提前 {days_left} 天提醒"
                 recipients = sorted(set(recipients + _escalation_recipients()))
-                subject = f"[提前一周截止提醒] {title}"
+                subject = f"[提前 {days_left} 天截止提醒] {title}"
                 body = (
-                    f"以下通告将在一周内截止（剩余 {days_left} 天）：\n\n"
+                    f"以下通告将在 {days_left} 天后截止：\n\n"
                     f"通告：{title}\n"
                     f"通告编号：{row.get('system_no') or '未编号'}\n"
                     f"截止日期：{deadline.isoformat()}\n"

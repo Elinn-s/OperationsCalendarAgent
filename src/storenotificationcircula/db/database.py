@@ -15,15 +15,7 @@ load_dotenv()
 
 
 def _secret(key: str, default: str = "") -> str:
-    value = os.environ.get(key, default)
-    if value:
-        return value
-    try:
-        import streamlit as st
-
-        return st.secrets.get(key, default)
-    except Exception:
-        return default
+    return os.environ.get(key, default)
 
 
 def _database_mode() -> str:
@@ -33,7 +25,7 @@ def _database_mode() -> str:
 def _database_url() -> str:
     url = _secret("DATABASE_URL")
     if not url:
-        raise RuntimeError("DATABASE_URL 未配置，请在 .streamlit/secrets.toml 或环境变量中设置。")
+        raise RuntimeError("DATABASE_URL 未配置，请在 .env 或环境变量中设置。")
     return url
 
 
@@ -166,8 +158,9 @@ def init_db() -> None:
                 effective_end TEXT,
                 archive_until TEXT,
                 contacts TEXT,
-                status TEXT DEFAULT '已发送',
+                status TEXT DEFAULT '草稿',
                 tags TEXT DEFAULT '[]',
+                reminder_days TEXT,
                 file_path TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
@@ -206,6 +199,7 @@ def init_db() -> None:
                 owner TEXT,
                 reminder_email TEXT,
                 reminder_enabled INTEGER DEFAULT 1,
+                reminder_days TEXT,
                 status TEXT DEFAULT '已预录',
                 remind_14d_sent INTEGER DEFAULT 0,
                 remind_7d_sent INTEGER DEFAULT 0,
@@ -220,6 +214,33 @@ def init_db() -> None:
                 value TEXT NOT NULL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS smtp_accounts (
+                id {pk},
+                name TEXT NOT NULL,
+                host TEXT NOT NULL,
+                port INTEGER DEFAULT 587,
+                username TEXT,
+                password TEXT,
+                sender TEXT,
+                use_ssl INTEGER DEFAULT 0,
+                use_tls INTEGER DEFAULT 1,
+                is_default INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """.format(pk=pk))
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS email_contacts (
+                id {pk},
+                label TEXT,
+                email TEXT NOT NULL,
+                kind TEXT DEFAULT '收件人',
+                is_default INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """.format(pk=pk))
         conn.execute("""
             CREATE TABLE IF NOT EXISTS ack_recipients (
                 id {pk},
@@ -271,6 +292,7 @@ def init_db() -> None:
             ("notifications", "impact_region", "TEXT"),
             ("notifications", "impact_role", "TEXT"),
             ("notifications", "deadline", "TEXT"),
+            ("notifications", "reminder_days", "TEXT"),
             ("plans", "notification_content", "TEXT"),
             ("plans", "make_reminder_date", "TEXT"),
             ("plans", "publish_reminder_date", "TEXT"),
@@ -278,6 +300,7 @@ def init_db() -> None:
             ("plans", "updated_at", "TEXT"),
             ("plans", "reminder_email", "TEXT"),
             ("plans", "reminder_enabled", "INTEGER DEFAULT 1"),
+            ("plans", "reminder_days", "TEXT"),
             ("ack_recipients", "department", "TEXT"),
             ("ack_recipients", "recipient_name", "TEXT"),
             ("ack_recipients", "sent_at", "TEXT"),
@@ -295,16 +318,10 @@ def init_db() -> None:
         conn.execute("UPDATE notifications SET impact_role = target_scope WHERE (impact_role IS NULL OR impact_role = '') AND target_scope IS NOT NULL")
         conn.execute("UPDATE notifications SET deadline = effective_end WHERE (deadline IS NULL OR deadline = '') AND effective_end IS NOT NULL")
         conn.execute("UPDATE notifications SET status = '草稿' WHERE status IN ('Draft', '草稿', '待审批', '待发布')")
-        conn.execute("UPDATE notifications SET status = '执行中' WHERE status IN ('Sent', '已发送', '执行中', '已发布')")
+        conn.execute("UPDATE notifications SET status = '执行中' WHERE status IN ('Sent', '已发送', '执行中', '已发布', 'Overdue', '已截止', '已过期', '已逾期')")
         conn.execute("UPDATE notifications SET status = '已回执' WHERE status IN ('Acknowledged', '已回执')")
         conn.execute("UPDATE notifications SET status = '已完成' WHERE status IN ('Completed', '已完成', '已归档')")
-        conn.execute("UPDATE notifications SET status = '已逾期' WHERE status IN ('Overdue', '已截止', '已过期')")
         conn.execute("UPDATE plans SET status = '已编写' WHERE status IN ('待发布', '未开始', '制定中')")
-        conn.execute(
-            "UPDATE notifications SET status = '已逾期'"
-            " WHERE status IN ('执行中', '已回执') AND COALESCE(deadline, effective_end) IS NOT NULL AND COALESCE(deadline, effective_end) < ?",
-            (date.today().isoformat(),),
-        )
         conn.execute("UPDATE notifications SET notice_type = '其他' WHERE notice_type IS NULL OR notice_type = ''")
 
         # 补全缺失 system_no

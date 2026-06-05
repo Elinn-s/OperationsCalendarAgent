@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-import json
 import re
-import uuid
 from datetime import date, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from storenotificationcircula.db.database import generate_system_no, get_conn, log_action
-from storenotificationcircula.services.ack import add_ack_recipients
-from storenotificationcircula.services.reminders import process_deadline_reminders, process_plan_reminders
+from storenotificationcircula.db.database import get_conn
+from storenotificationcircula.services.email.settings import get_setting
+from storenotificationcircula.services.reminders import process_plan_reminders
 
 router = APIRouter()
 
@@ -27,19 +25,7 @@ class PlanPayload(BaseModel):
     owner: str = ""
     status: str = "已预录"
     reminder_enabled: int = 1
-    actor_email: str = ""
-    reminder_email: str = ""
-
-
-class PublishPayload(BaseModel):
-    doc_ref: str = ""
-    notice_type: str = "其他"
-    department: str = ""
-    title: str = ""
-    target_scope: str = ""
-    content: str = ""
-    effective_start: str | None = None
-    effective_end: str | None = None
+    reminder_days: str = ""
     actor_email: str = ""
     reminder_email: str = ""
 
@@ -69,6 +55,17 @@ def _extract_date(text: str) -> date | None:
     return None
 
 
+def _default_plan_reminder_days() -> int:
+    raw = get_setting("plan_reminder_days", "7")
+    days = []
+    for part in raw.replace("，", ",").split(","):
+        try:
+            days.append(int(part.strip()))
+        except ValueError:
+            continue
+    return max(days) if days else 7
+
+
 @router.post("/extract")
 def extract_plan_from_text(body: dict[str, str]) -> dict[str, Any]:
     text = (body.get("text") or "").strip()
@@ -90,7 +87,7 @@ def extract_plan_from_text(body: dict[str, str]) -> dict[str, Any]:
         "notification_content": text,
         "planned_publish_date": planned_publish_date.isoformat(),
         "make_reminder_date": (planned_publish_date - timedelta(days=14)).isoformat(),
-        "publish_reminder_date": (planned_publish_date - timedelta(days=7)).isoformat(),
+        "publish_reminder_date": (planned_publish_date - timedelta(days=_default_plan_reminder_days())).isoformat(),
         "status": "已预录",
     }
 
@@ -115,15 +112,22 @@ def create_plan(payload: PlanPayload) -> dict[str, Any]:
     now = datetime.now().isoformat()
     planned = payload.planned_publish_date or (date.today() + timedelta(days=14)).isoformat()
     make = payload.make_reminder_date or (date.fromisoformat(planned) - timedelta(days=14)).isoformat()
-    publish = payload.publish_reminder_date or (date.fromisoformat(planned) - timedelta(days=7)).isoformat()
+    reminder_days = payload.reminder_days.strip()
+    publish_offset = _default_plan_reminder_days()
+    if reminder_days:
+        try:
+            publish_offset = max(int(part.strip()) for part in reminder_days.replace("，", ",").split(",") if part.strip())
+        except ValueError:
+            publish_offset = _default_plan_reminder_days()
+    publish = payload.publish_reminder_date or (date.fromisoformat(planned) - timedelta(days=publish_offset)).isoformat()
     with get_conn() as conn:
         cursor = conn.execute(
             """
             INSERT INTO plans
                 (activity_name, notification_content, planned_publish_date, make_reminder_date,
                  publish_reminder_date, effective_start, effective_end, owner, reminder_email,
-                 reminder_enabled, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 reminder_enabled, reminder_days, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payload.activity_name.strip(),
@@ -136,6 +140,7 @@ def create_plan(payload: PlanPayload) -> dict[str, Any]:
                 payload.owner.strip(),
                 payload.reminder_email.strip(),
                 1 if payload.reminder_enabled else 0,
+                payload.reminder_days.strip(),
                 payload.status,
                 now,
                 now,
@@ -151,12 +156,16 @@ def update_plan(plan_id: int, payload: PlanPayload) -> dict[str, str]:
         raise HTTPException(status_code=400, detail="activity_name is required")
     now = datetime.now().isoformat()
     with get_conn() as conn:
-        existing = conn.execute("SELECT id, publish_reminder_date, reminder_enabled, remind_7d_sent FROM plans WHERE id = ?", (plan_id,)).fetchone()
+        existing = conn.execute(
+            "SELECT id, publish_reminder_date, reminder_enabled, reminder_days, remind_7d_sent FROM plans WHERE id = ?",
+            (plan_id,),
+        ).fetchone()
         if not existing:
             raise HTTPException(status_code=404, detail="plan not found")
         reset_7d_sent = (
             (existing["publish_reminder_date"] or "") != (payload.publish_reminder_date or "")
             or int(existing["reminder_enabled"] if existing["reminder_enabled"] is not None else 1) != (1 if payload.reminder_enabled else 0)
+            or (existing["reminder_days"] or "") != (payload.reminder_days or "")
         )
         conn.execute(
             """
@@ -164,7 +173,7 @@ def update_plan(plan_id: int, payload: PlanPayload) -> dict[str, str]:
             SET activity_name = ?, notification_content = ?, planned_publish_date = ?,
                 make_reminder_date = ?, publish_reminder_date = ?, effective_start = ?,
                 effective_end = ?, owner = ?, reminder_email = ?, reminder_enabled = ?,
-                status = ?, remind_7d_sent = ?, updated_at = ?
+                reminder_days = ?, status = ?, remind_7d_sent = ?, updated_at = ?
             WHERE id = ?
             """,
             (
@@ -178,6 +187,7 @@ def update_plan(plan_id: int, payload: PlanPayload) -> dict[str, str]:
                 payload.owner.strip(),
                 payload.reminder_email.strip(),
                 1 if payload.reminder_enabled else 0,
+                payload.reminder_days.strip(),
                 payload.status,
                 0 if reset_7d_sent else existing["remind_7d_sent"],
                 now,
@@ -204,62 +214,3 @@ def scan_plan_reminders(plan_id: int) -> dict[str, int]:
         if not existing:
             raise HTTPException(status_code=404, detail="plan not found")
     return process_plan_reminders(send_emails=True, plan_id=plan_id)
-
-
-@router.post("/{plan_id}/publish")
-def publish_plan(plan_id: int, payload: PublishPayload) -> dict[str, Any]:
-    now = datetime.now().isoformat()
-    with get_conn() as conn:
-        plan = conn.execute("SELECT * FROM plans WHERE id = ?", (plan_id,)).fetchone()
-        if not plan:
-            raise HTTPException(status_code=404, detail="plan not found")
-
-        notification_id = str(uuid.uuid4())
-        system_no = generate_system_no()
-        title = payload.title.strip() or plan["activity_name"]
-        content = payload.content.strip() or plan["notification_content"] or ""
-        effective_start = payload.effective_start or plan["effective_start"] or date.today().isoformat()
-        effective_end = payload.effective_end or plan["effective_end"] or plan["planned_publish_date"]
-
-        conn.execute(
-            """
-            INSERT INTO notifications
-                (notification_id, doc_ref, system_no, notice_type, issuer, owner, department,
-                 title, description, purpose, target_scope, deadline, effective_start,
-                 effective_end, status, tags, file_path, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '执行中', ?, '', ?, ?)
-            """,
-            (
-                notification_id,
-                payload.doc_ref.strip(),
-                system_no,
-                payload.notice_type.strip() or "其他",
-                payload.department.strip(),
-                plan["owner"] or "",
-                payload.department.strip(),
-                title,
-                content,
-                content,
-                payload.target_scope.strip(),
-                effective_end,
-                effective_start,
-                effective_end,
-                json.dumps(["预录发布"], ensure_ascii=False),
-                now,
-                now,
-            ),
-        )
-        conn.execute(
-            "UPDATE plans SET status = '已发布', linked_notification_id = ?, updated_at = ? WHERE id = ?",
-            (notification_id, now, plan_id),
-        )
-
-    email = payload.reminder_email or payload.actor_email
-    if email:
-        add_ack_recipients(
-            notification_id,
-            [{"department": "默认提醒", "recipient_name": "当前登录邮箱", "email": email}],
-        )
-    log_action(notification_id, "API预录发布", f"预录活动: {title}", payload.actor_email or "API")
-    stats = process_deadline_reminders(send_emails=True, notification_id=notification_id)
-    return {"notification_id": notification_id, "system_no": system_no, "reminder_stats": stats}

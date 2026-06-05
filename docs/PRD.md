@@ -301,7 +301,7 @@
 ```
 技术栈（初步建议，待确认）
 ├── 后端：Python（FastAPI）
-├── 前端：简单 Web UI（可用 Streamlit 快速原型，或 React 正式版）
+├── 前端：Fetch + 原生 HTML/CSS/JavaScript
 ├── 数据库：SQLite（本地原型） → PostgreSQL（生产）
 ├── AI 解析：Claude API（PDF 文字提取 + 字段识别）
 ├── 向量检索：ChromaDB 或 FAISS（本地）

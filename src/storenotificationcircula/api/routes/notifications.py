@@ -39,6 +39,7 @@ class NotificationPayload(BaseModel):
     effective_end: str | None = None
     status: str = "草稿"
     tags: list[str] = Field(default_factory=list)
+    reminder_days: str = ""
     reminder_email: str = ""
     actor_email: str = ""
 
@@ -135,8 +136,8 @@ def create_notification(payload: NotificationPayload) -> dict[str, Any]:
                 (notification_id, doc_ref, system_no, notice_type, issuer, owner, owner_role,
                  department, title, description, purpose, target_scope, impact_store,
                  impact_region, impact_role, deadline, effective_start, effective_end,
-                 status, tags, file_path, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?)
+                 status, tags, reminder_days, file_path, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?)
             """,
             (
                 notification_id,
@@ -159,6 +160,7 @@ def create_notification(payload: NotificationPayload) -> dict[str, Any]:
                 effective_end,
                 payload.status.strip() or "草稿",
                 json.dumps(payload.tags, ensure_ascii=False),
+                payload.reminder_days.strip(),
                 now,
                 now,
             ),
@@ -199,7 +201,7 @@ def update_notification(notification_id: str, payload: NotificationPayload) -> d
                 owner_role = ?, department = ?, title = ?, description = ?, purpose = ?,
                 target_scope = ?, impact_store = ?, impact_region = ?, impact_role = ?,
                 deadline = ?, effective_start = ?, effective_end = ?, status = ?,
-                tags = ?, updated_at = ?
+                tags = ?, reminder_days = ?, updated_at = ?
             WHERE notification_id = ?
             """,
             (
@@ -222,6 +224,7 @@ def update_notification(notification_id: str, payload: NotificationPayload) -> d
                 effective_end,
                 payload.status.strip() or "草稿",
                 json.dumps(payload.tags, ensure_ascii=False),
+                payload.reminder_days.strip(),
                 now,
                 notification_id,
             ),
