@@ -15,6 +15,21 @@
     switchView("login");
   }
 
+  async function loadStatus() {
+    try {
+      const data = await request("/auth/status");
+      return Boolean(data.enabled);
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function disableAuthUi() {
+    App.state.currentUser = null;
+    $("authUserBox").hidden = true;
+    document.querySelector(".nav-tabs").hidden = false;
+  }
+
   async function loadCurrentUser() {
     try {
       const data = await request("/auth/me");
@@ -62,10 +77,12 @@
   }
 
   window.Auth = {
+    loadStatus,
     loadCurrentUser,
     login,
     logout,
     showLogin,
     setAuthenticated,
+    disableAuthUi,
   };
 }());

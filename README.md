@@ -40,7 +40,8 @@ http://localhost:8000/health
 ### 本地试用配置
 
 - `APP_DATABASE_MODE = "sqlite"`：数据写入 `data/app.db`
-- `APP_ADMIN_EMAIL` / `APP_ADMIN_PASSWORD`：首次初始化数据库时创建登录账号
+- `AUTH_ENABLED`：是否启用登录保护，默认 `false`；需要登录时设为 `true`
+- `APP_ADMIN_EMAIL` / `APP_ADMIN_PASSWORD`：启用登录时，首次初始化数据库创建登录账号
 - `AUTH_SESSION_SECONDS`：登录会话有效期，默认 `86400`
 - `DIFY_API_KEY` / `DIFY_BASE_URL`：PDF 字段识别
 - `APP_BASE_URL`：邮件回执确认链接使用的访问地址

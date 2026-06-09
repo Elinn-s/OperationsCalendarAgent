@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from storenotificationcircula.services.auth import (
     SESSION_COOKIE_NAME,
     authenticate,
+    auth_enabled,
     cookie_secure,
     create_session,
     delete_session,
@@ -21,6 +22,11 @@ router = APIRouter()
 class LoginPayload(BaseModel):
     email: str
     password: str
+
+
+@router.get("/status")
+def status() -> dict[str, bool]:
+    return {"enabled": auth_enabled()}
 
 
 @router.post("/login")
@@ -49,6 +55,8 @@ def logout(request: Request, response: Response) -> dict[str, str]:
 
 @router.get("/me")
 def me(request: Request) -> dict[str, Any]:
+    if not auth_enabled():
+        return {"user": None, "enabled": False}
     user = get_user_by_session(request.cookies.get(SESSION_COOKIE_NAME))
     if not user:
         raise HTTPException(status_code=401, detail="未登录")

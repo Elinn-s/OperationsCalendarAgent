@@ -21,6 +21,10 @@ def _secret(key: str, default: str = "") -> str:
     return os.getenv(key, default)
 
 
+def auth_enabled() -> bool:
+    return _secret("AUTH_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def session_max_age_seconds() -> int:
     try:
         return max(int(_secret("AUTH_SESSION_SECONDS", "86400")), 300)

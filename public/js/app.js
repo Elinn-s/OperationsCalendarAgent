@@ -72,6 +72,12 @@
       await Ack.loadAck(App.state.initialParams.ack_token);
       return;
     }
+    const authEnabled = await Auth.loadStatus();
+    if (!authEnabled) {
+      Auth.disableAuthUi();
+      await loadAppData();
+      return;
+    }
     const user = await Auth.loadCurrentUser();
     if (!user) return;
     await loadAppData();

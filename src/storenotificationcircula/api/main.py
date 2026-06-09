@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from storenotificationcircula.api.routes import acknowledgements, auth, email_settings, health, notifications, plans, reminders
 from storenotificationcircula.db.database import init_db
-from storenotificationcircula.services.auth import SESSION_COOKIE_NAME, get_user_by_session
+from storenotificationcircula.services.auth import SESSION_COOKIE_NAME, auth_enabled, get_user_by_session
 
 app = FastAPI(title="Store Notification Circulation API", version="0.1.0")
 PUBLIC_DIR = Path(__file__).resolve().parents[3] / "public"
@@ -22,6 +22,8 @@ def _startup() -> None:
 
 @app.middleware("http")
 async def require_login(request: Request, call_next):
+    if not auth_enabled():
+        return await call_next(request)
     protected_prefixes = ("/notifications", "/plans", "/ack/notifications", "/reminders", "/email-settings")
     if request.url.path.startswith(protected_prefixes):
         user = get_user_by_session(request.cookies.get(SESSION_COOKIE_NAME))
