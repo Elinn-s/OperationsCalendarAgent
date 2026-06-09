@@ -15,6 +15,10 @@
           <h1>營運通告管理</h1>
           <p>PDF 通告歸檔、歷史查詢、預錄提醒與月度發佈觀察。</p>
         </div>
+        <div id="authUserBox" class="auth-userbox" hidden>
+          <span id="authUserLabel" class="meta"></span>
+          <button id="logoutBtn" type="button">登出</button>
+        </div>
       </header>
 
       <div id="toast" class="toast"></div>
@@ -27,6 +31,27 @@
         <button type="button" data-view="email-settings">郵箱設定</button>
         <button type="button" data-view="ack" hidden>回執確認</button>
       </nav>
+
+      <section id="view-login" class="view grid main" hidden>
+        <section class="card auth-card">
+          <div class="section-title">
+            <h2>登入驗證</h2>
+            <span class="badge">受保護</span>
+          </div>
+          <form id="loginForm" class="auth-form">
+            <label>
+              <span>郵箱</span>
+              <input id="loginEmail" type="email" autocomplete="username" required />
+            </label>
+            <label>
+              <span>密碼</span>
+              <input id="loginPassword" type="password" autocomplete="current-password" required />
+            </label>
+            <button id="loginBtn" type="submit" class="primary">登入</button>
+          </form>
+          <p class="hint">請使用系統管理員提供的賬號密碼。登入後才可查看通告、預錄、郵箱設定與提醒資料。</p>
+        </section>
+      </section>
 
       <section id="view-overview" class="view">
         <section class="grid kpis">
@@ -281,6 +306,7 @@
   <script src="/public/js/plans.js?v=20260605-1" defer></script>
   <script src="/public/js/email-settings.js?v=20260605-1" defer></script>
   <script src="/public/js/ack.js?v=20260605-1" defer></script>
+  <script src="/public/js/auth.js?v=20260605-1" defer></script>
   <script src="/public/js/app.js?v=20260605-1" defer></script>
 </body>
 </html>

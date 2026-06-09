@@ -68,6 +68,14 @@ p { margin: 0; }
   gap: 16px;
   margin-bottom: 18px;
 }
+.auth-userbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+.auth-card { max-width: 520px; }
+.auth-form { display: grid; gap: 14px; }
 .topbar p, .hint { color: var(--muted); font-size: 13px; line-height: 1.6; margin-top: 8px; }
 .brand { font-size: 13px; font-weight: 800; letter-spacing: .12em; color: var(--accent); }
 .grid { display: grid; gap: 16px; }

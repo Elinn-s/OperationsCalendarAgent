@@ -18,6 +18,7 @@
       emailSettings: null,
       calendarDate: new Date(),
       ackToken: null,
+      currentUser: null,
       initialParams: Object.fromEntries(new URLSearchParams(window.location.search).entries()),
     },
     fields: [
@@ -106,11 +107,15 @@
   window.request = async function request(path, options = {}) {
     const res = await fetch(path, {
       headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      credentials: "same-origin",
       ...options,
     });
     if (!res.ok) {
       let detail = res.statusText;
       try { detail = (await res.json()).detail || detail; } catch (_) {}
+      if (res.status === 401 && window.Auth) {
+        Auth.showLogin();
+      }
       throw new Error(detail);
     }
     return res.json();

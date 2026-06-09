@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import os
 import sqlite3
 import uuid
@@ -101,6 +103,34 @@ def _pk(conn) -> str:
     if conn.dialect == "postgres":
         return "SERIAL PRIMARY KEY"
     return "INTEGER PRIMARY KEY AUTOINCREMENT"
+
+
+def _password_hash(password: str) -> str:
+    salt = os.urandom(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 180_000)
+    return "pbkdf2_sha256$180000${}${}".format(
+        base64.b64encode(salt).decode("ascii"),
+        base64.b64encode(digest).decode("ascii"),
+    )
+
+
+def _init_admin_user(conn) -> None:
+    email = _secret("APP_ADMIN_EMAIL").strip().lower()
+    password = _secret("APP_ADMIN_PASSWORD")
+    if not email or not password:
+        return
+    existing = conn.execute("SELECT id FROM app_users WHERE email = ?", (email,)).fetchone()
+    if existing:
+        return
+    now = datetime.now().isoformat()
+    conn.execute(
+        """
+        INSERT INTO app_users
+            (email, password_hash, display_name, is_active, created_at, updated_at)
+        VALUES (?, ?, ?, 1, ?, ?)
+        """,
+        (email, _password_hash(password), email.split("@", 1)[0], now, now),
+    )
 
 
 def _add_column_if_missing(conn, table: str, column: str, definition: str) -> None:
@@ -215,6 +245,25 @@ def init_db() -> None:
             )
         """)
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS app_users (
+                id {pk},
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                display_name TEXT,
+                is_active INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """.format(pk=pk))
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS app_sessions (
+                token TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                expires_at TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS smtp_accounts (
                 id {pk},
                 name TEXT NOT NULL,
@@ -308,6 +357,8 @@ def init_db() -> None:
             ("ack_recipients", "updated_at", "TEXT"),
             ("reminder_log", "recipient_email", "TEXT"),
             ("reminder_log", "error", "TEXT"),
+            ("app_users", "display_name", "TEXT"),
+            ("app_users", "is_active", "INTEGER DEFAULT 1"),
         ]:
             _add_column_if_missing(conn, table, column, definition)
 
@@ -338,6 +389,8 @@ def init_db() -> None:
                 "UPDATE notifications SET system_no = ? WHERE id = ?",
                 (_next_system_no_for_date(conn, target_date), row["id"]),
             )
+
+        _init_admin_user(conn)
 
 
 def new_id() -> str:

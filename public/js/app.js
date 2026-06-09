@@ -52,6 +52,8 @@
     on("calendarMonthPicker", "change", (event) => Overview.selectMonth(event.target.value));
     on("confirmAckBtn", "click", Ack.confirmAck);
     on("backToAppBtn", "click", () => switchView("overview"));
+    on("loginForm", "submit", Auth.login);
+    on("logoutBtn", "click", Auth.logout);
 
     document.querySelectorAll(".nav-tabs button").forEach((button) => {
       button.addEventListener("click", async () => {
@@ -63,9 +65,20 @@
 
   async function init() {
     renderNoticeFields("#noticeForm .notice-fields");
-    switchView("overview");
     bindEvents();
     resetNoticeDetail("history");
+    if (App.state.initialParams && App.state.initialParams.ack_token) {
+      document.querySelector(".nav-tabs").hidden = true;
+      await Ack.loadAck(App.state.initialParams.ack_token);
+      return;
+    }
+    const user = await Auth.loadCurrentUser();
+    if (!user) return;
+    await loadAppData();
+  }
+
+  async function loadAppData() {
+    switchView("overview");
     Overview.render();
     try {
       await EmailSettings.loadSettings();
@@ -101,4 +114,6 @@
   window.addEventListener("DOMContentLoaded", () => {
     init().catch((err) => showToast(`初始化失敗：${err.message}`));
   });
+
+  window.loadAppData = loadAppData;
 }());
