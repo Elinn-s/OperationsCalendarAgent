@@ -54,6 +54,17 @@
     on("backToAppBtn", "click", () => switchView("overview"));
     on("loginForm", "submit", Auth.login);
     on("logoutBtn", "click", Auth.logout);
+    on("languageSelect", "change", (event) => {
+      setLanguage(event.target.value);
+      renderNoticeFields("#noticeForm .notice-fields");
+      if (App.state.currentNotice) fillNoticeForm("history", App.state.currentNotice);
+      if (App.state.importDraft) fillNoticeForm("history", App.state.importDraft);
+      if (window.History) History.renderList();
+      if (window.Plans) Plans.renderPlans();
+      if (window.Overview) Overview.render();
+      if (window.EmailSettings) EmailSettings.renderSettings();
+      applyI18n();
+    });
 
     document.querySelectorAll(".nav-tabs button").forEach((button) => {
       button.addEventListener("click", async () => {
@@ -67,6 +78,7 @@
     renderNoticeFields("#noticeForm .notice-fields");
     bindEvents();
     resetNoticeDetail("history");
+    setLanguage(App.state.language);
     if (App.state.initialParams && App.state.initialParams.ack_token) {
       document.querySelector(".nav-tabs").hidden = true;
       await Ack.loadAck(App.state.initialParams.ack_token);
@@ -89,7 +101,7 @@
     try {
       await EmailSettings.loadSettings();
     } catch (err) {
-      showToast(`郵箱設定載入失敗：${err.message}`);
+      showToast(`${t("郵箱設定載入失敗")}：${err.message}`);
     }
     await History.loadNotifications();
     await Plans.loadPlans();
@@ -118,7 +130,7 @@
   }
 
   window.addEventListener("DOMContentLoaded", () => {
-    init().catch((err) => showToast(`初始化失敗：${err.message}`));
+    init().catch((err) => showToast(`${t("初始化失敗")}：${err.message}`));
   });
 
   window.loadAppData = loadAppData;

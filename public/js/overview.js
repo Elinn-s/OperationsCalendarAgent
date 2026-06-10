@@ -32,7 +32,7 @@
     const total = entries.reduce((sum, [, value]) => sum + value, 0);
     if (!total) {
       pie.style.background = "#eef0fc";
-      legend.innerHTML = `<div class="meta">暫無類型分佈。</div>`;
+      legend.innerHTML = `<div class="meta">${t("暫無類型分佈。")}</div>`;
       return;
     }
 
@@ -49,14 +49,14 @@
       const item = document.createElement("div");
       item.className = "pie-legend-item";
       const percent = Math.round((value / total) * 100);
-      item.innerHTML = `<span class="pie-dot" style="background:${colors[index % colors.length]}"></span><span>${escapeHtml(noticeTypeLabel(label))} · ${value} 條 · ${percent}%</span>`;
+      item.innerHTML = `<span class="pie-dot" style="background:${colors[index % colors.length]}"></span><span>${escapeHtml(noticeTypeLabel(label))} · ${value} ${t("條")} · ${percent}%</span>`;
       legend.appendChild(item);
     });
   }
 
   function renderAttention(rows) {
     const root = $("attentionList");
-    root.innerHTML = rows.length ? "" : `<div class="meta">暫無需要關注的通告。</div>`;
+    root.innerHTML = rows.length ? "" : `<div class="meta">${t("暫無需要關注的通告。")}</div>`;
     for (const n of rows.slice(0, 6)) {
       const deadline = n.deadline || n.effective_end || "";
       const btn = document.createElement("button");
@@ -64,10 +64,10 @@
       btn.className = "notice-item";
       btn.innerHTML = `
         <div class="row">
-          <div class="title">${escapeHtml(n.title || "(無標題)")}</div>
+          <div class="title">${escapeHtml(n.title || `(${t("無標題")})`)}</div>
           <span class="${statusBadgeClass(n.status, deadline)}">${escapeHtml(statusLabel(n.status, deadline))}</span>
         </div>
-        <div class="meta">${escapeHtml(n.system_no || "未編號")} · 截止 ${escapeHtml(deadline || "未設定")}</div>
+        <div class="meta">${escapeHtml(n.system_no || t("未編號"))} · ${t("截止")} ${escapeHtml(deadline || t("未設定"))}</div>
       `;
       btn.addEventListener("click", async () => {
         switchView("history");
@@ -85,13 +85,13 @@
       if (!deadline) continue;
       const left = daysLeft(deadline);
       let kind = "running";
-      let label = "執行中";
+      let label = t("執行中");
       if (left < 0) {
         kind = "overdue";
-        label = "已逾期";
+        label = t("已逾期");
       } else if (left <= 7) {
         kind = "soon";
-        label = "即將截止";
+        label = t("即將截止");
       } else if (n.status === "已完成" || n.status === "已回执") {
         kind = "done";
         label = statusLabel(n.status);
@@ -100,8 +100,8 @@
         date: deadline,
         kind,
         label,
-        title: n.title || "(無標題)",
-        meta: `${n.system_no || "未編號"} · ${statusLabel(n.status, deadline)}`,
+        title: n.title || `(${t("無標題")})`,
+        meta: `${n.system_no || t("未編號")} · ${statusLabel(n.status, deadline)}`,
         open: () => {
           switchView("history");
           App.state.historySearched = true;
@@ -116,8 +116,8 @@
         date: ddl,
         kind: "plan",
         label: statusLabel(plan.status),
-        title: plan.activity_name || "(未命名)",
-        meta: `預錄 DDL · ${plan.owner || "未設定負責人"}`,
+        title: plan.activity_name || `(${t("未命名")})`,
+        meta: `${t("預錄 DDL")} · ${plan.owner || t("未設定負責人")}`,
         open: () => {
           switchView("plans");
           window.Plans.selectPlan(plan.id);
@@ -143,13 +143,13 @@
   function renderCalendarDetail(date, items, focused) {
     const root = $("calendarDayDetail");
     if (!items.length) {
-      root.innerHTML = `<div class="meta">${escapeHtml(date)} 暫無事項。</div>`;
+      root.innerHTML = `<div class="meta">${escapeHtml(date)} ${t("暫無事項。")}</div>`;
       return;
     }
     root.innerHTML = "";
     const heading = document.createElement("div");
     heading.className = "calendar-detail-heading";
-    heading.innerHTML = `<strong>${escapeHtml(date)}</strong><span class="meta">${focused ? "已選擇事項" : `共 ${items.length} 項`}</span>`;
+    heading.innerHTML = `<strong>${escapeHtml(date)}</strong><span class="meta">${focused ? t("已選擇事項") : `${t("共")} ${items.length} ${t("項")}`}</span>`;
     root.appendChild(heading);
     for (const item of items) {
       const card = document.createElement("div");
@@ -160,7 +160,7 @@
           <span class="calendar-dot ${item.kind}">${escapeHtml(item.label)}</span>
         </div>
         <div class="meta">${escapeHtml(date)} · ${escapeHtml(item.meta)}</div>
-        <div class="actions"><button type="button" class="primary">查看詳情</button></div>
+        <div class="actions"><button type="button" class="primary">${t("查看詳情")}</button></div>
       `;
       card.querySelector("button").addEventListener("click", item.open);
       root.appendChild(card);
@@ -174,7 +174,7 @@
     const year = current.getFullYear();
     const month = current.getMonth();
     const todayKey = localDateKey(now);
-    const monthText = `${year} 年 ${month + 1} 月`;
+    const monthText = App.state.language === "en" ? `${year}-${String(month + 1).padStart(2, "0")}` : `${year} 年 ${month + 1} 月`;
     $("calendarMonthBtn").textContent = monthText;
     $("calendarMonthPicker").value = `${year}-${String(month + 1).padStart(2, "0")}`;
 
@@ -190,7 +190,7 @@
     table.className = "calendar-table";
     const thead = document.createElement("thead");
     const headRow = document.createElement("tr");
-    ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"].forEach((label) => {
+    [t("星期一"), t("星期二"), t("星期三"), t("星期四"), t("星期五"), t("星期六"), t("星期日")].forEach((label) => {
       const th = document.createElement("th");
       th.textContent = label;
       headRow.appendChild(th);
@@ -228,7 +228,7 @@
         if (items.length > 3) {
           const more = document.createElement("span");
           more.className = "meta";
-          more.textContent = `另有 ${items.length - 3} 項`;
+          more.textContent = `${t("另有")} ${items.length - 3} ${t("項")}`;
           cellInner.appendChild(more);
         }
         cellInner.addEventListener("click", () => renderCalendarDetail(key, items));
@@ -288,7 +288,7 @@
         const d = daysLeft(n.deadline || n.effective_end);
         return d >= 0 && d <= 7;
       }).length;
-      $("kpiOverdue").textContent = rows.filter((n) => daysLeft(n.deadline || n.effective_end) < 0).length;
+      $("kpiCompleted").textContent = rows.filter((n) => n.status === "已完成").length;
 
       const typeMap = new Map();
       for (const n of rows) {
@@ -297,26 +297,27 @@
       }
       const typeRows = [...typeMap.entries()]
         .sort((a, b) => b[1] - a[1])
-        .map(([label, value]) => ({ label: noticeTypeLabel(label), value: `${value} 條` }));
+        .map(([label, value]) => ({ label: noticeTypeLabel(label), value: `${value} ${t("條")}` }));
       $("typeCount").textContent = typeRows.length;
       renderTypePie([...typeMap.entries()].sort((a, b) => b[1] - a[1]));
-      renderMetricRows("typeSummary", typeRows, "暫無通告類型數據。");
+      renderMetricRows("typeSummary", typeRows, t("暫無通告類型數據。"));
 
       const dayMap = new Map();
       for (const n of monthRows) {
         const raw = n.created_at || n.effective_start || n.deadline || "";
-        const day = String(raw).slice(0, 10) || "未設定";
+        const day = String(raw).slice(0, 10) || t("未設定");
         dayMap.set(day, (dayMap.get(day) || 0) + 1);
       }
       const dayRows = [...dayMap.entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 8)
-        .map(([label, value]) => ({ label, value: `${value} 條` }));
+        .map(([label, value]) => ({ label, value: `${value} ${t("條")}` }));
       $("monthNoticeCount").textContent = monthRows.length;
-      renderMetricRows("monthTimeline", dayRows, "本月暫無通告發佈記錄。");
+      renderMetricRows("monthTimeline", dayRows, t("本月暫無通告發佈記錄。"));
 
       $("attentionCount").textContent = attention.length;
       renderAttention(attention);
+      applyI18n($("view-overview"));
     },
     prevMonth() {
       changeMonth(-1);

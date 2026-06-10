@@ -74,6 +74,24 @@ p { margin: 0; }
   gap: 10px;
   white-space: nowrap;
 }
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.language-switch {
+  display: flex;
+  align-items: center;
+  grid-template-columns: none;
+  gap: 8px;
+  white-space: nowrap;
+}
+.language-switch select {
+  width: auto;
+  min-width: 150px;
+}
 .auth-card { max-width: 520px; }
 .auth-form { display: grid; gap: 14px; }
 .topbar p, .hint { color: var(--muted); font-size: 13px; line-height: 1.6; margin-top: 8px; }
@@ -100,6 +118,18 @@ p { margin: 0; }
 .nav-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
 .nav-tabs button { background: #fff; color: var(--muted); font-weight: 700; }
 .nav-tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ai-summary-card {
+  margin: 0 0 16px;
+}
+.ai-summary-card .section-title {
+  margin-bottom: 8px;
+}
+.ai-summary-body {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+  min-height: 44px;
+}
 .view[hidden], [hidden] { display: none !important; }
 .overview-grid { grid-template-columns: 1fr 1fr 1fr; margin-top: 16px; }
 .overview-calendar-card { margin-top: 16px; }

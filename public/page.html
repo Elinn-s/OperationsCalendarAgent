@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>營運通告 Agent</title>
-  <link rel="stylesheet" href="/public/styles.css?v=20260609-2" />
+  <link rel="stylesheet" href="/public/styles.css?v=20260610-2" />
 </head>
 <body>
   <div id="app" class="app">
@@ -13,21 +13,39 @@
         <div>
           <div class="brand">OPS AGENT</div>
           <h1>營運通告管理</h1>
-          <p>PDF 通告歸檔、歷史查詢、預錄提醒與月度發佈觀察。</p>
+          <p>通告歸檔、歷史查詢、預錄提醒與月度發佈觀察。</p>
         </div>
-        <div id="authUserBox" class="auth-userbox" hidden>
-          <span id="authUserLabel" class="meta"></span>
-          <button id="logoutBtn" type="button">登出</button>
+        <div class="topbar-actions">
+          <label class="language-switch">語言
+            <select id="languageSelect" aria-label="語言切換">
+              <option value="zh-Hant">繁體中文（港區）</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+          <div id="authUserBox" class="auth-userbox" hidden>
+            <span id="authUserLabel" class="meta"></span>
+            <button id="logoutBtn" type="button">登出</button>
+          </div>
         </div>
       </header>
 
       <div id="toast" class="toast"></div>
 
+      <section class="card ai-summary-card" aria-label="AI 總結預留區">
+        <div class="section-title">
+          <h2>AI 總結</h2>
+          <span class="badge">預留</span>
+        </div>
+        <div class="ai-summary-body" id="aiSummaryBox">
+          未來會在這裡接入 AI 摘要，快速總結本月通告重點、即將到期事項與需要跟進的風險。
+        </div>
+      </section>
+
       <nav class="nav-tabs" aria-label="功能欄目">
         <button class="active" type="button" data-view="overview">Overview</button>
-        <button type="button" data-view="import">PDF 匯入</button>
+        <button type="button" data-view="import">通告匯入</button>
         <button type="button" data-view="history">歷史查詢</button>
-        <button type="button" data-view="plans">預錄備忘</button>
+        <button type="button" data-view="plans">通告預錄</button>
         <button type="button" data-view="email-settings">郵箱設定</button>
         <button type="button" data-view="ack" hidden>回執確認</button>
       </nav>
@@ -56,9 +74,9 @@
       <section id="view-overview" class="view">
         <section class="grid kpis">
           <article class="card"><div class="kpi-title">本月通告總數</div><div class="kpi-value" id="kpiMonthTotal">0</div></article>
-          <article class="card"><div class="kpi-title">執行中 / 已回執</div><div class="kpi-value" id="kpiRunning">0</div></article>
-          <article class="card"><div class="kpi-title">一週內截止</div><div class="kpi-value" id="kpiSoon">0</div></article>
-          <article class="card"><div class="kpi-title">逾期風險</div><div class="kpi-value" id="kpiOverdue">0</div></article>
+          <article class="card"><div class="kpi-title">正在執行中</div><div class="kpi-value" id="kpiRunning">0</div></article>
+          <article class="card"><div class="kpi-title">一週內即將到期</div><div class="kpi-value" id="kpiSoon">0</div></article>
+          <article class="card"><div class="kpi-title">已完成</div><div class="kpi-value" id="kpiCompleted">0</div></article>
         </section>
         <section class="grid overview-grid">
           <article class="card">
@@ -99,12 +117,12 @@
       <section id="view-import" class="view grid main" hidden>
         <section class="card">
           <div class="section-title">
-            <h2>PDF 上傳識別</h2>
+            <h2>通告上傳識別</h2>
             <span class="meta">識別後進入詳情表單，核對後保存入庫。</span>
           </div>
           <div class="toolbar">
             <input id="pdfFile" type="file" accept="application/pdf" />
-            <button class="primary" id="extractPdfBtn" type="button">識別 PDF 並填表</button>
+            <button class="primary" id="extractPdfBtn" type="button">識別通告並填表</button>
           </div>
           <p class="hint">這裡是正式通告入口，不提供手工新增；識別結果可編輯，用於兜底修正 OCR/AI 提取偏差。</p>
         </section>
@@ -162,7 +180,7 @@
       <section id="view-plans" class="view grid two-col" hidden>
         <section class="card">
           <div class="section-title">
-            <h2>預錄備忘</h2>
+            <h2>通告預錄</h2>
             <button id="reloadPlansBtn" type="button">刷新預錄</button>
           </div>
           <label class="span-2">貼上活動/通告內容
@@ -209,7 +227,7 @@
 
         <section class="card">
           <div class="section-title">
-            <h2>預錄備忘清單</h2>
+            <h2>通告預錄清單</h2>
             <span class="badge" id="planCount">0</span>
           </div>
           <div id="planList" class="mini-list"></div>
@@ -298,15 +316,15 @@
     </div>
   </div>
 
-  <script src="/public/js/shared.js?v=20260609-2" defer></script>
-  <script src="/public/js/notice-form.js?v=20260609-2" defer></script>
-  <script src="/public/js/overview.js?v=20260609-2" defer></script>
-  <script src="/public/js/history.js?v=20260609-2" defer></script>
-  <script src="/public/js/import.js?v=20260609-2" defer></script>
-  <script src="/public/js/plans.js?v=20260609-2" defer></script>
-  <script src="/public/js/email-settings.js?v=20260609-2" defer></script>
-  <script src="/public/js/ack.js?v=20260609-2" defer></script>
-  <script src="/public/js/auth.js?v=20260609-2" defer></script>
-  <script src="/public/js/app.js?v=20260609-2" defer></script>
+  <script src="/public/js/shared.js?v=20260610-2" defer></script>
+  <script src="/public/js/notice-form.js?v=20260610-2" defer></script>
+  <script src="/public/js/overview.js?v=20260610-2" defer></script>
+  <script src="/public/js/history.js?v=20260610-2" defer></script>
+  <script src="/public/js/import.js?v=20260610-2" defer></script>
+  <script src="/public/js/plans.js?v=20260610-2" defer></script>
+  <script src="/public/js/email-settings.js?v=20260610-2" defer></script>
+  <script src="/public/js/ack.js?v=20260610-2" defer></script>
+  <script src="/public/js/auth.js?v=20260610-2" defer></script>
+  <script src="/public/js/app.js?v=20260610-2" defer></script>
 </body>
 </html>

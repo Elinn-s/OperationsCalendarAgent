@@ -37,18 +37,18 @@
     fillNoticeForm("history", draft);
     setNoticeEditMode(true);
     History.renderList();
-    showToast("PDF 識別完成，已填入通告詳情。請核對後保存入庫。");
+    showToast(t("通告識別完成，已填入通告詳情。請核對後保存入庫。"));
   }
 
   async function uploadPdfForExtract() {
     const file = $("pdfFile").files[0];
     if (!file) {
-      showToast("請先選擇 PDF 文件。");
+      showToast(t("請先選擇通告 PDF 文件。"));
       return;
     }
     $("extractPdfBtn").disabled = true;
-    $("extractPdfBtn").textContent = "識別中...";
-    showToast("正在識別 PDF，請稍候。首次 OCR 可能較慢。");
+    $("extractPdfBtn").textContent = t("識別中...");
+    showToast(t("正在識別通告，請稍候。首次 OCR 可能較慢。"));
     try {
       const res = await fetch(`/notifications/extract-pdf?filename=${encodeURIComponent(file.name)}`, {
         method: "POST",
@@ -63,10 +63,10 @@
       const data = await res.json();
       applyExtractedFields(data.fields || {});
     } catch (err) {
-      showToast(`PDF 識別失敗：${err.message}。如果是掃描版 PDF，請使用本地 OCR Plan B 啟動後再導入。`);
+      showToast(`${t("通告識別失敗")}：${err.message}。${t("如果是掃描版 PDF，請使用本地 OCR Plan B 啟動後再導入。")}`);
     } finally {
       $("extractPdfBtn").disabled = false;
-      $("extractPdfBtn").textContent = "識別 PDF 並填表";
+      $("extractPdfBtn").textContent = t("識別通告並填表");
     }
   }
 

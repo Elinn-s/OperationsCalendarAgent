@@ -45,7 +45,7 @@
     event.preventDefault();
     const button = $("loginBtn");
     button.disabled = true;
-    button.textContent = "登入中...";
+    button.textContent = t("登入中...");
     try {
       const data = await request("/auth/login", {
         method: "POST",
@@ -56,13 +56,13 @@
       });
       $("loginPassword").value = "";
       setAuthenticated(data.user);
-      showToast("登入成功。");
+      showToast(t("登入成功。"));
       await window.loadAppData();
     } catch (err) {
-      showToast(`登入失敗：${err.message}`);
+      showToast(`${t("登入失敗")}：${err.message}`);
     } finally {
       button.disabled = false;
-      button.textContent = "登入";
+      button.textContent = t("登入");
     }
   }
 
@@ -73,7 +73,7 @@
       // Even if the session is already gone, the local UI should return to login.
     }
     showLogin();
-    showToast("已登出。");
+    showToast(t("已登出。"));
   }
 
   window.Auth = {

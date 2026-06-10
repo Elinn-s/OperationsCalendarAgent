@@ -74,21 +74,21 @@
   function renderPlans() {
     $("planCount").textContent = App.state.plans.length;
     const root = $("planList");
-    root.innerHTML = App.state.plans.length ? "" : `<div class="meta">暫無預錄。</div>`;
+    root.innerHTML = App.state.plans.length ? "" : `<div class="meta">${t("暫無預錄。")}</div>`;
     for (const plan of App.state.plans) {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "notice-item" + planCardClass(plan.status) + (plan.id === App.state.selectedPlanId ? " active" : "");
       btn.innerHTML = `
         <div class="row">
-          <div class="title">${escapeHtml(plan.activity_name || "(未命名)")}</div>
-          <select class="${planStatusSelectClass(plan.status)}" data-plan-status-id="${plan.id}" aria-label="修改預錄狀態">
+          <div class="title">${escapeHtml(plan.activity_name || `(${t("未命名")})`)}</div>
+          <select class="${planStatusSelectClass(plan.status)}" data-plan-status-id="${plan.id}" aria-label="${t("修改預錄狀態")}">
             ${["已预录", "已编写", "已发布"].map((status) => `<option value="${status}"${status === (plan.status || "已预录") ? " selected" : ""}>${statusLabel(status)}</option>`).join("")}
           </select>
         </div>
-        <div class="meta">計劃發佈 ${escapeHtml(plan.planned_publish_date || "未設定")} · ${escapeHtml(plan.owner || "未設定負責人")}</div>
-        <div class="meta">預錄時間 ${escapeHtml(formatDateTime(plan.created_at))}</div>
-        <div class="meta">郵件提醒 ${Number(plan.reminder_enabled == null ? 1 : plan.reminder_enabled) ? "開啟" : "關閉"} · 提醒日 ${escapeHtml(plan.publish_reminder_date || "未設定")} · 提前 ${escapeHtml(plan.reminder_days || defaultPlanReminderDays())} 天</div>
+        <div class="meta">${t("計劃發佈")} ${escapeHtml(plan.planned_publish_date || t("未設定"))} · ${escapeHtml(plan.owner || t("未設定負責人"))}</div>
+        <div class="meta">${t("預錄時間")} ${escapeHtml(formatDateTime(plan.created_at))}</div>
+        <div class="meta">${t("郵件提醒")} ${Number(plan.reminder_enabled == null ? 1 : plan.reminder_enabled) ? t("開啟") : t("關閉")} · ${t("提醒日")} ${escapeHtml(plan.publish_reminder_date || t("未設定"))} · ${t("提前")} ${escapeHtml(plan.reminder_days || defaultPlanReminderDays())} ${t("天")}</div>
       `;
       btn.addEventListener("click", () => selectPlan(plan.id));
       root.appendChild(btn);
@@ -131,25 +131,25 @@
 
   async function deletePlan() {
     if (!App.state.selectedPlanId) {
-      showToast("請先選擇要刪除的預錄。");
+      showToast(t("請先選擇要刪除的預錄。"));
       return;
     }
-    if (!confirm("確認刪除當前預錄？")) return;
+    if (!confirm(t("確認刪除當前預錄？"))) return;
     try {
       await request(`/plans/${App.state.selectedPlanId}`, { method: "DELETE" });
-      showToast("預錄已刪除。");
+      showToast(t("預錄已刪除。"));
       App.state.selectedPlanId = null;
       clearPlanForm();
       await loadPlans();
     } catch (err) {
-      showToast(`刪除預錄失敗：${err.message}`);
+      showToast(`${t("刪除預錄失敗")}：${err.message}`);
     }
   }
 
   async function extractPlanText() {
     const text = $("planRawText").value.trim();
     if (!text) {
-      showToast("請先貼上預錄文案。");
+      showToast(t("請先貼上預錄文案。"));
       return;
     }
     try {
@@ -164,15 +164,15 @@
       $("plan_status").value = fields.status || "已预录";
       $("plan_notification_content").value = fields.notification_content || text;
       setPlanEditMode(true);
-      showToast("預錄文案已識別，請核對後保存。");
+      showToast(t("預錄文案已識別，請核對後保存。"));
     } catch (err) {
-      showToast(`預錄識別失敗：${err.message}`);
+      showToast(`${t("預錄識別失敗")}：${err.message}`);
     }
   }
 
   function collectPlanPayload() {
     const name = $("plan_activity_name").value.trim();
-    if (!name) throw new Error("活動名稱不能為空");
+    if (!name) throw new Error(t("活動名稱不能為空"));
     return {
       activity_name: name,
       owner: $("plan_owner").value.trim(),
@@ -201,42 +201,42 @@
         App.state.selectedPlanId = result.id;
       }
       let reminderText = "";
-      if (isReminderDue(payload) && confirm("郵件提醒日已到，是否現在發送這條預錄提醒？")) {
+      if (isReminderDue(payload) && confirm(t("郵件提醒日已到，是否現在發送這條預錄提醒？"))) {
         const stats = await request(`/plans/${savedPlanId}/scan-reminders`, { method: "POST" });
-        reminderText = ` 已掃描提醒：發送 ${stats.sent || 0}，失敗 ${stats.failed || 0}，跳過 ${stats.skipped || 0}。`;
+        reminderText = ` ${t("已掃描提醒")}：${t("發送")} ${stats.sent || 0}，${t("失敗")} ${stats.failed || 0}，${t("跳過")} ${stats.skipped || 0}。`;
       }
-      showToast("預錄已保存。" + reminderText);
+      showToast(t("預錄已保存。") + reminderText);
       await loadPlans();
       setPlanEditMode(false);
     } catch (err) {
-      showToast(`保存預錄失敗：${err.message}`);
+      showToast(`${t("保存預錄失敗")}：${err.message}`);
     }
   }
 
   async function markPlanStatus(status) {
     if (!App.state.selectedPlanId) {
-      showToast("請先選擇一個預錄。");
+      showToast(t("請先選擇一個預錄。"));
       return;
     }
     try {
       $("plan_status").value = status;
       const payload = collectPlanPayload();
       await request(`/plans/${App.state.selectedPlanId}`, { method: "PUT", body: JSON.stringify(payload) });
-      showToast(`預錄已標記為：${statusLabel(status)}。`);
+      showToast(`${t("預錄已標記為")}：${statusLabel(status)}。`);
       await loadPlans();
     } catch (err) {
-      showToast(`標記失敗：${err.message}`);
+      showToast(`${t("標記失敗")}：${err.message}`);
     }
   }
 
   function cancelPlanEdit() {
     if (App.state.selectedPlanId) {
       selectPlan(App.state.selectedPlanId);
-      showToast("已撤銷未保存的預錄修改。");
+      showToast(t("已撤銷未保存的預錄修改。"));
       return;
     }
     clearPlanForm();
-    showToast("已清空新建預錄表單。");
+    showToast(t("已清空新建預錄表單。"));
   }
 
   async function updatePlanStatusFromList(planId, status) {
@@ -257,10 +257,10 @@
         reminder_email: App.state.email || plan.reminder_email || "",
       };
       await request(`/plans/${planId}`, { method: "PUT", body: JSON.stringify(payload) });
-      showToast(`預錄已更新為：${statusLabel(status)}。`);
+      showToast(`${t("預錄已更新為")}：${statusLabel(status)}。`);
       await loadPlans();
     } catch (err) {
-      showToast(`修改預錄狀態失敗：${err.message}`);
+      showToast(`${t("修改預錄狀態失敗")}：${err.message}`);
       await loadPlans();
     }
   }
@@ -286,11 +286,11 @@
     syncReminderDateFromDdl,
     enableEdit() {
       if (!App.state.selectedPlanId) {
-        showToast("請先選擇一個預錄。");
+        showToast(t("請先選擇一個預錄。"));
         return;
       }
       setPlanEditMode(true);
-      showToast("已進入預錄編輯模式。");
+      showToast(t("已進入預錄編輯模式。"));
     },
   };
 }());

@@ -24,7 +24,7 @@
   function collectSmtpPayload() {
     const name = $("smtp_name").value.trim();
     const host = $("smtp_host").value.trim();
-    if (!name || !host) throw new Error("發件配置名稱和 SMTP Host 不能為空");
+    if (!name || !host) throw new Error(t("發件配置名稱和 SMTP Host 不能為空"));
     return {
       name,
       host,
@@ -40,19 +40,19 @@
 
   function renderSmtpList(accounts) {
     const root = $("smtpList");
-    root.innerHTML = accounts.length ? "" : `<div class="meta">暫無發件配置，未配置時會嘗試使用 .env 中的 SMTP。</div>`;
+    root.innerHTML = accounts.length ? "" : `<div class="meta">${t("暫無發件配置，未配置時會嘗試使用 .env 中的 SMTP。")}</div>`;
     for (const account of accounts) {
       const item = document.createElement("div");
       item.className = "settings-list-item";
       item.innerHTML = `
         <div class="row">
           <strong>${escapeHtml(account.name)}</strong>
-          <span class="badge small">${account.is_default ? "默認" : "備選"}</span>
+          <span class="badge small">${account.is_default ? t("默認") : t("備選")}</span>
         </div>
-        <div class="meta">${escapeHtml(account.host)}:${escapeHtml(account.port)} · ${escapeHtml(account.sender || account.username || "未設定發件人")}</div>
+        <div class="meta">${escapeHtml(account.host)}:${escapeHtml(account.port)} · ${escapeHtml(account.sender || account.username || t("未設定發件人"))}</div>
         <div class="actions">
-          <button type="button" data-edit-smtp="${account.id}">編輯</button>
-          <button type="button" class="danger" data-delete-smtp="${account.id}">刪除</button>
+          <button type="button" data-edit-smtp="${account.id}">${t("編輯")}</button>
+          <button type="button" class="danger" data-delete-smtp="${account.id}">${t("刪除")}</button>
         </div>
       `;
       root.appendChild(item);
@@ -65,9 +65,9 @@
     });
     root.querySelectorAll("[data-delete-smtp]").forEach((button) => {
       button.addEventListener("click", async () => {
-        if (!confirm("確認刪除這個發件配置？")) return;
+        if (!confirm(t("確認刪除這個發件配置？"))) return;
         await request(`/email-settings/smtp/${button.dataset.deleteSmtp}`, { method: "DELETE" });
-        showToast("發件配置已刪除。");
+        showToast(t("發件配置已刪除。"));
         await loadSettings();
       });
     });
@@ -75,22 +75,22 @@
 
   function renderContactList(contacts) {
     $("emailContactCount").textContent = contacts.length;
-    $("currentEmailMeta").textContent = `當前提醒郵箱：${App.state.email || "未設定"}`;
+    $("currentEmailMeta").textContent = `${t("當前提醒郵箱")}：${App.state.email || t("未設定")}`;
     const root = $("contactList");
-    root.innerHTML = contacts.length ? "" : `<div class="meta">暫無常用收件郵箱。</div>`;
+    root.innerHTML = contacts.length ? "" : `<div class="meta">${t("暫無常用收件郵箱。")}</div>`;
     for (const contact of contacts) {
       const item = document.createElement("div");
       item.className = "settings-list-item";
       item.innerHTML = `
         <div class="row">
           <strong>${escapeHtml(contact.label || contact.email)}</strong>
-          <span class="badge small">${contact.is_default ? "默認" : escapeHtml(contact.kind || "收件人")}</span>
+          <span class="badge small">${contact.is_default ? t("默認") : escapeHtml(t(contact.kind || "收件人"))}</span>
         </div>
         <div class="meta">${escapeHtml(contact.email)}</div>
         <div class="actions">
-          <button type="button" data-use-contact="${escapeHtml(contact.email)}">設為當前郵箱</button>
-          <button type="button" data-edit-contact="${contact.id}">編輯</button>
-          <button type="button" class="danger" data-delete-contact="${contact.id}">刪除</button>
+          <button type="button" data-use-contact="${escapeHtml(contact.email)}">${t("設為當前郵箱")}</button>
+          <button type="button" data-edit-contact="${contact.id}">${t("編輯")}</button>
+          <button type="button" class="danger" data-delete-contact="${contact.id}">${t("刪除")}</button>
         </div>
       `;
       root.appendChild(item);
@@ -106,15 +106,15 @@
         App.state.email = button.dataset.useContact;
         localStorage.setItem("opsAgentEmail", App.state.email);
         if ($("reminder_email")) $("reminder_email").value = App.state.email;
-        $("currentEmailMeta").textContent = `當前提醒郵箱：${App.state.email}`;
-        showToast("已設為當前提醒郵箱。");
+        $("currentEmailMeta").textContent = `${t("當前提醒郵箱")}：${App.state.email}`;
+        showToast(t("已設為當前提醒郵箱。"));
       });
     });
     root.querySelectorAll("[data-delete-contact]").forEach((button) => {
       button.addEventListener("click", async () => {
-        if (!confirm("確認刪除這個收件郵箱？")) return;
+        if (!confirm(t("確認刪除這個收件郵箱？"))) return;
         await request(`/email-settings/contacts/${button.dataset.deleteContact}`, { method: "DELETE" });
-        showToast("收件郵箱已刪除。");
+        showToast(t("收件郵箱已刪除。"));
         await loadSettings();
       });
     });
@@ -129,9 +129,9 @@
 
   function renderReminderLogs(logs) {
     const root = $("reminderLogList");
-    root.innerHTML = logs.length ? "" : `<div class="meta">暫無提醒記錄。</div>`;
+    root.innerHTML = logs.length ? "" : `<div class="meta">${t("暫無提醒記錄。")}</div>`;
     for (const log of logs) {
-      const statusText = log.status === "失败" ? "失敗" : log.status === "跳过" ? "跳過" : (log.status || "");
+      const statusText = log.status === "失败" ? t("失敗") : log.status === "跳过" ? t("跳過") : t(log.status || "");
       const statusClass = log.status === "成功" ? "badge green small" : log.status === "失败" ? "badge red small" : "badge small";
       const reminderType = String(log.reminder_type || "提醒")
         .replace("预录", "預錄")
@@ -145,7 +145,7 @@
           <strong>${escapeHtml(reminderType)}</strong>
           <span class="${statusClass}">${escapeHtml(statusText)}</span>
         </div>
-        <div class="meta">${escapeHtml(formatDateTime(log.created_at))} · ${escapeHtml(log.recipient_email || "無收件人")}</div>
+        <div class="meta">${escapeHtml(formatDateTime(log.created_at))} · ${escapeHtml(log.recipient_email || t("無收件人"))}</div>
         <div class="meta">${escapeHtml(log.error || "")}</div>
       `;
       root.appendChild(item);
@@ -171,10 +171,10 @@
         method: id ? "PUT" : "POST",
         body: JSON.stringify(payload),
       });
-      showToast("發件配置已保存。");
+      showToast(t("發件配置已保存。"));
       await loadSettings();
     } catch (err) {
-      showToast(`保存發件配置失敗：${err.message}`);
+      showToast(`${t("保存發件配置失敗")}：${err.message}`);
     }
   }
 
@@ -188,10 +188,10 @@
           plan_reminder_days: $("global_plan_reminder_days").value.trim() || "7",
         }),
       });
-      showToast("提醒規則已保存。");
+      showToast(t("提醒規則已保存。"));
       await loadSettings();
     } catch (err) {
-      showToast(`保存提醒規則失敗：${err.message}`);
+      showToast(`${t("保存提醒規則失敗")}：${err.message}`);
     }
   }
 
@@ -209,17 +209,17 @@
         }),
       });
       fillContactForm({});
-      showToast("收件郵箱已保存。");
+      showToast(t("收件郵箱已保存。"));
       await loadSettings();
     } catch (err) {
-      showToast(`保存收件郵箱失敗：${err.message}`);
+      showToast(`${t("保存收件郵箱失敗")}：${err.message}`);
     }
   }
 
   async function testSmtp() {
     const to = App.state.email || $("contact_email").value.trim();
     if (!to) {
-      showToast("請先在常用郵箱中設定當前郵箱，或在收件郵箱輸入框填入測試收件人。");
+      showToast(t("請先在常用郵箱中設定當前郵箱，或在收件郵箱輸入框填入測試收件人。"));
       return;
     }
     try {
@@ -227,20 +227,20 @@
         method: "POST",
         body: JSON.stringify({ to_email: to, smtp_id: selectedSmtpId() }),
       });
-      showToast("測試郵件已發送。");
+      showToast(t("測試郵件已發送。"));
     } catch (err) {
-      showToast(`測試發送失敗：${err.message}`);
+      showToast(`${t("測試發送失敗")}：${err.message}`);
     }
   }
 
   async function runReminders() {
-    if (!confirm("確認現在掃描正式通告與預錄提醒？")) return;
+    if (!confirm(t("確認現在掃描正式通告與預錄提醒？"))) return;
     try {
       const stats = await request("/reminders/run", { method: "POST" });
-      showToast(`提醒掃描完成：檢查 ${stats.checked || 0}，發送 ${stats.sent || 0}，失敗 ${stats.failed || 0}，跳過 ${stats.skipped || 0}。`);
+      showToast(`${t("提醒掃描完成")}：${t("檢查")} ${stats.checked || 0}，${t("發送")} ${stats.sent || 0}，${t("失敗")} ${stats.failed || 0}，${t("跳過")} ${stats.skipped || 0}。`);
       await loadSettings();
     } catch (err) {
-      showToast(`提醒掃描失敗：${err.message}`);
+      showToast(`${t("提醒掃描失敗")}：${err.message}`);
     }
   }
 
@@ -248,8 +248,8 @@
     App.state.email = "";
     localStorage.removeItem("opsAgentEmail");
     if ($("reminder_email")) $("reminder_email").value = "";
-    $("currentEmailMeta").textContent = "當前提醒郵箱：未設定";
-    showToast("已清除當前提醒郵箱。");
+    $("currentEmailMeta").textContent = `${t("當前提醒郵箱")}：${t("未設定")}`;
+    showToast(t("已清除當前提醒郵箱。"));
   }
 
   window.EmailSettings = {

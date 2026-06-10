@@ -1,5 +1,6 @@
 (function () {
-  const fieldDefinitions = [
+  function fieldDefinitions() {
+    return [
     ["system_no", "系統編號", "input", { disabled: true }],
     ["doc_ref", "檔案編號", "input"],
     ["title", "標題 *", "input", { required: true, span: true }],
@@ -16,9 +17,10 @@
     ["impact_region", "影響區域", "input"],
     ["impact_role", "影響角色", "input"],
     ["reminder_email", "默認提醒郵箱", "input", { type: "email" }],
-    ["reminder_days", "自定義提前天數", "input", { placeholder: "留空使用全局，例如 7,3,1" }],
+    ["reminder_days", "自定義提前天數", "input", { placeholder: t("留空使用全局，例如 7,3,1") }],
     ["description", "通告描述", "textarea", { span: true }],
-  ];
+    ];
+  }
 
   function controlHtml(id, type, config = {}) {
     if (type === "textarea") return `<textarea id="${id}"></textarea>`;
@@ -26,7 +28,7 @@
       return `<select id="${id}">${config.options.map((option) => {
         const value = Array.isArray(option) ? option[0] : option;
         const label = Array.isArray(option) ? option[1] : option;
-        return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+        return `<option value="${escapeHtml(value)}">${escapeHtml(t(label))}</option>`;
       }).join("")}</select>`;
     }
     const inputType = config.type || "text";
@@ -38,9 +40,9 @@
 
   window.renderNoticeFields = function renderNoticeFields(rootSelector) {
     document.querySelectorAll(rootSelector).forEach((root) => {
-      root.innerHTML = fieldDefinitions.map(([id, label, type, config = {}]) => {
+      root.innerHTML = fieldDefinitions().map(([id, label, type, config = {}]) => {
         const span = config.span ? " class=\"span-2\"" : "";
-        return `<label${span}>${label}${controlHtml(id, type, config)}</label>`;
+        return `<label${span}>${t(label)}${controlHtml(id, type, config)}</label>`;
       }).join("");
     });
   };
@@ -58,13 +60,13 @@
     const titleEl = $("detailTitle");
     const badgeEl = $("detailBadge");
     const metaEl = $("detailMeta");
-    titleEl.textContent = notice.notification_id ? "通告詳情" : "識別結果詳情";
-    badgeEl.textContent = notice.notification_id ? statusLabel(notice.status, notice.deadline || notice.effective_end) : "待保存";
+    titleEl.textContent = notice.notification_id ? t("通告詳情") : t("識別結果詳情");
+    badgeEl.textContent = notice.notification_id ? statusLabel(notice.status, notice.deadline || notice.effective_end) : t("待保存");
     badgeEl.className = statusBadgeClass(notice.status, notice.deadline || notice.effective_end);
     if (metaEl) {
       metaEl.textContent = notice.notification_id
-        ? `匯入時間：${formatDateTime(notice.created_at)}`
-        : "匯入時間：待保存，保存入庫後生成";
+        ? `${t("匯入時間")}：${formatDateTime(notice.created_at)}`
+        : `${t("匯入時間")}：${t("待保存，保存入庫後生成")}`;
     }
 
     for (const key of App.fields) {
@@ -96,8 +98,8 @@
     const title = $("title").value.trim();
     const start = $("effective_start").value;
     const deadline = $("deadline").value;
-    if (!title) throw new Error("標題不能為空");
-    if (start && deadline && deadline < start) throw new Error("截止日期不能早於執行開始");
+    if (!title) throw new Error(t("標題不能為空"));
+    if (start && deadline && deadline < start) throw new Error(t("截止日期不能早於執行開始"));
 
     const payload = {
       actor_email: App.state.email,
@@ -122,8 +124,8 @@
     if (historyView) historyView.classList.remove("detail-open");
     if (form) form.hidden = true;
     if (empty) empty.hidden = false;
-    $("detailTitle").textContent = "通告詳情";
-    $("detailBadge").textContent = "未選擇";
+    $("detailTitle").textContent = t("通告詳情");
+    $("detailBadge").textContent = t("未選擇");
     $("detailBadge").className = "badge";
     $("detailMeta").textContent = "";
     $("history").innerHTML = "";
