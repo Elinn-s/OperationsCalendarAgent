@@ -43,7 +43,9 @@ http://localhost:8000/health
 - `AUTH_ENABLED`：是否启用登录保护，默认 `false`；需要登录时设为 `true`
 - `APP_ADMIN_EMAIL` / `APP_ADMIN_PASSWORD`：启用登录时，首次初始化数据库创建登录账号
 - `AUTH_SESSION_SECONDS`：登录会话有效期，默认 `86400`
-- `DIFY_API_KEY` / `DIFY_BASE_URL`：PDF 字段识别
+- `LLM_PROVIDER`：PDF 字段识别模型来源，支持 `dify` / `claude`
+- `DIFY_API_KEY` / `DIFY_BASE_URL`：`LLM_PROVIDER=dify` 时使用 Dify workflow 做字段识别
+- `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL`：`LLM_PROVIDER=claude` 时直连 Claude 做字段识别
 - `APP_BASE_URL`：邮件回执确认链接使用的访问地址
 
 ### 切换正式数据库
@@ -58,6 +60,8 @@ http://localhost:8000/health
 - `REMINDER_DAYS`：正式通告 Deadline 前提醒窗口，默认 `"7"` 表示进入截止前一周提醒一次。
 - `PLAN_REMINDER_DAYS`：预录备忘发布日期前提醒窗口，默认 `"7"`。
 - `ESCALATION_EMAILS`：逾期升级收件人，多个邮箱用逗号分隔
+
+「郵箱設定」支持简化绑定：主界面只需要填写发件邮箱和邮箱授权码，系统会按发件邮箱自动识别常见 SMTP 配置，例如 163、126、QQ、Foxmail、腾讯企业邮、Outlook/Hotmail/Office 365、Gmail。自动识别只会填充 SMTP host、端口、SSL/STARTTLS，邮箱授权码仍需在对应邮箱后台开启 SMTP 服务后手动填写；未知邮箱可展开「高级 SMTP 配置」手动填写。
 
 当前试用默认按 163 网易邮箱配置：
 

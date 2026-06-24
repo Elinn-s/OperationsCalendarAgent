@@ -174,6 +174,19 @@ p { margin: 0; }
 .badge.small { font-size: 11px; padding: 2px 6px; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .span-2 { grid-column: span 2; }
+.advanced-section {
+  margin-top: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.advanced-section summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+.advanced-section .form-grid { margin-top: 12px; }
 .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
 .timeline { display: grid; gap: 8px; margin-top: 12px; max-height: 220px; overflow: auto; }
 .timeline-item { border-left: 3px solid var(--line); padding: 4px 0 6px 10px; color: var(--muted); font-size: 12px; }

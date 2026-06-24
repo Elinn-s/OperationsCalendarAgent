@@ -18,7 +18,7 @@
         <div class="topbar-actions">
           <label class="language-switch">語言
             <select id="languageSelect" aria-label="語言切換">
-              <option value="zh-Hant">繁體中文（港區）</option>
+              <option value="zh-Hant">繁體中文</option>
               <option value="en">English</option>
             </select>
           </label>
@@ -242,24 +242,30 @@
           </div>
           <form id="smtpForm">
             <input id="smtp_id" type="hidden" />
+            <input id="smtp_username" type="hidden" />
             <div class="form-grid">
-              <label>發件配置名稱<input id="smtp_name" placeholder="例如 公司郵箱" /></label>
-              <label>SMTP Host<input id="smtp_host" placeholder="smtp.example.com" /></label>
-              <label>SMTP Port<input id="smtp_port" type="number" value="587" /></label>
-              <label>帳號<input id="smtp_username" /></label>
-              <label>密碼 / 授權碼<input id="smtp_password" type="password" placeholder="留空則保留原密碼" /></label>
-              <label>發件人<input id="smtp_sender" placeholder="name@example.com" /></label>
-              <label>SSL
-                <select id="smtp_use_ssl"><option value="0">關閉</option><option value="1">開啟</option></select>
-              </label>
-              <label>STARTTLS
-                <select id="smtp_use_tls"><option value="1">開啟</option><option value="0">關閉</option></select>
-              </label>
+              <label>發件郵箱<input id="smtp_sender" type="email" placeholder="name@example.com" /></label>
+              <label>密碼 / 授權碼<input id="smtp_password" type="password" placeholder="首次綁定請填郵箱授權碼；編輯時留空保留原密碼" /></label>
             </div>
+            <div id="smtpProviderHint" class="meta">輸入發件郵箱後會自動識別常見 SMTP 配置；授權碼仍需手動填寫。</div>
+            <details class="advanced-section">
+              <summary>高級 SMTP 配置</summary>
+              <div class="form-grid">
+                <label>發件配置名稱<input id="smtp_name" placeholder="例如 公司郵箱" /></label>
+                <label>SMTP Host<input id="smtp_host" placeholder="smtp.example.com" /></label>
+                <label>SMTP Port<input id="smtp_port" type="number" value="587" /></label>
+                <label>SSL
+                  <select id="smtp_use_ssl"><option value="0">關閉</option><option value="1">開啟</option></select>
+                </label>
+                <label>STARTTLS
+                  <select id="smtp_use_tls"><option value="1">開啟</option><option value="0">關閉</option></select>
+                </label>
+              </div>
+            </details>
             <div class="actions">
               <button type="button" id="newSmtpBtn">新建發件配置</button>
               <button type="button" id="testSmtpBtn">測試發送</button>
-              <button type="submit" class="primary">保存發件配置</button>
+              <button type="submit" class="primary">綁定郵箱</button>
             </div>
           </form>
 
@@ -279,9 +285,10 @@
         <section class="card">
           <div class="section-title"><h2>常用郵箱與提醒記錄</h2><span class="badge" id="emailContactCount">0</span></div>
           <div id="currentEmailMeta" class="meta">當前提醒郵箱：未設定</div>
+          <div class="meta">收件人備註僅用於標識聯絡人，與發件郵箱綁定無關。</div>
           <form id="contactForm" class="toolbar">
             <input id="contact_id" type="hidden" />
-            <input id="contact_label" placeholder="名稱 / 角色" />
+            <input id="contact_label" placeholder="收件人備註（可選）" />
             <input id="contact_email" type="email" placeholder="email@example.com" />
             <select id="contact_is_default" aria-label="是否默認收件人">
               <option value="0">普通收件人</option>
@@ -295,7 +302,10 @@
           <div id="smtpList" class="mini-list"></div>
           <h3>常用收件郵箱</h3>
           <div id="contactList" class="mini-list"></div>
-          <h3>最近提醒記錄</h3>
+          <div class="row">
+            <h3>最近提醒記錄</h3>
+            <button id="clearReminderLogsBtn" type="button">清空記錄</button>
+          </div>
           <div id="reminderLogList" class="mini-list"></div>
         </section>
       </section>
@@ -316,15 +326,15 @@
     </div>
   </div>
 
-  <script src="/public/js/shared.js?v=20260610-2" defer></script>
-  <script src="/public/js/notice-form.js?v=20260610-2" defer></script>
-  <script src="/public/js/overview.js?v=20260610-2" defer></script>
-  <script src="/public/js/history.js?v=20260610-2" defer></script>
-  <script src="/public/js/import.js?v=20260610-2" defer></script>
-  <script src="/public/js/plans.js?v=20260610-2" defer></script>
-  <script src="/public/js/email-settings.js?v=20260610-2" defer></script>
-  <script src="/public/js/ack.js?v=20260610-2" defer></script>
-  <script src="/public/js/auth.js?v=20260610-2" defer></script>
-  <script src="/public/js/app.js?v=20260610-2" defer></script>
+  <script src="/public/js/shared.js?v=20260623-1" defer></script>
+  <script src="/public/js/notice-form.js?v=20260623-1" defer></script>
+  <script src="/public/js/overview.js?v=20260623-1" defer></script>
+  <script src="/public/js/history.js?v=20260623-1" defer></script>
+  <script src="/public/js/import.js?v=20260623-1" defer></script>
+  <script src="/public/js/plans.js?v=20260623-1" defer></script>
+  <script src="/public/js/email-settings.js?v=20260623-1" defer></script>
+  <script src="/public/js/ack.js?v=20260623-1" defer></script>
+  <script src="/public/js/auth.js?v=20260623-1" defer></script>
+  <script src="/public/js/app.js?v=20260623-1" defer></script>
 </body>
 </html>

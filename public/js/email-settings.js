@@ -1,4 +1,7 @@
 (function () {
+  let providerDetectTimer = null;
+  let lastProviderEmail = "";
+
   async function loadSettings() {
     App.state.emailSettings = await request("/email-settings");
     renderSettings();
@@ -10,32 +13,81 @@
   }
 
   function fillSmtpForm(account = {}) {
+    lastProviderEmail = (account.sender || account.username || "").trim().toLowerCase();
     $("smtp_id").value = account.id || "";
     $("smtp_name").value = account.name || "";
     $("smtp_host").value = account.host || "";
     $("smtp_port").value = account.port || 587;
-    $("smtp_username").value = account.username || "";
+    $("smtp_username").value = account.username || account.sender || "";
     $("smtp_password").value = "";
-    $("smtp_sender").value = account.sender || "";
+    $("smtp_sender").value = account.sender || account.username || "";
     $("smtp_use_ssl").value = String(Number(account.use_ssl || 0));
     $("smtp_use_tls").value = String(Number(account.use_tls == null ? 1 : account.use_tls));
+    setProviderHint(t("只需填入發件郵箱和授權碼，系統會自動識別常見 SMTP 配置。"));
   }
 
   function collectSmtpPayload() {
-    const name = $("smtp_name").value.trim();
+    const email = $("smtp_sender").value.trim().toLowerCase();
+    const name = $("smtp_name").value.trim() || email || t("自動識別郵箱");
     const host = $("smtp_host").value.trim();
-    if (!name || !host) throw new Error(t("發件配置名稱和 SMTP Host 不能為空"));
+    if (!email) throw new Error(t("發件郵箱不能為空"));
+    if (!host) throw new Error(t("未能自動識別此郵箱，請展開高級 SMTP 配置手動填寫。"));
     return {
       name,
       host,
       port: Number($("smtp_port").value || 587),
-      username: $("smtp_username").value.trim(),
+      username: $("smtp_username").value.trim() || email,
       password: $("smtp_password").value,
-      sender: $("smtp_sender").value.trim(),
+      sender: email,
       use_ssl: Number($("smtp_use_ssl").value),
       use_tls: Number($("smtp_use_tls").value),
       is_default: 1,
     };
+  }
+
+  function smtpEmailCandidate() {
+    return ($("smtp_sender").value || "").trim().toLowerCase();
+  }
+
+  function setProviderHint(message) {
+    const hint = $("smtpProviderHint");
+    if (hint) hint.textContent = message || "";
+  }
+
+  function applyProviderPreset(result) {
+    $("smtp_host").value = result.host || "";
+    $("smtp_port").value = result.port || 587;
+    $("smtp_use_ssl").value = String(Number(result.use_ssl || 0));
+    $("smtp_use_tls").value = String(Number(result.use_tls || 0));
+    $("smtp_sender").value = result.email || $("smtp_sender").value;
+    $("smtp_username").value = result.email || $("smtp_sender").value;
+    if (!$("smtp_name").value) $("smtp_name").value = result.provider || t("自動識別郵箱");
+  }
+
+  async function detectSmtpProviderNow() {
+    const email = smtpEmailCandidate();
+    if (!email || !email.includes("@")) {
+      setProviderHint(t("只需填入發件郵箱和授權碼，系統會自動識別常見 SMTP 配置。"));
+      return;
+    }
+    if (email === lastProviderEmail && $("smtp_host").value.trim()) return;
+    lastProviderEmail = email;
+    try {
+      const result = await request(`/email-settings/provider?email=${encodeURIComponent(email)}`);
+      if (result.matched) {
+        applyProviderPreset(result);
+        setProviderHint(`${t("已識別為")} ${result.provider}${t("，SMTP 配置已自動填充；授權碼仍需手動填寫。")}`);
+      } else {
+        setProviderHint(t("暫未識別此郵箱服務商，請手動填寫 SMTP Host、端口和加密方式。"));
+      }
+    } catch (err) {
+      setProviderHint(`${t("郵箱服務商識別失敗")}：${err.message}`);
+    }
+  }
+
+  function detectSmtpProvider() {
+    window.clearTimeout(providerDetectTimer);
+    providerDetectTimer = window.setTimeout(detectSmtpProviderNow, 350);
   }
 
   function renderSmtpList(accounts) {
@@ -165,16 +217,17 @@
   async function saveSmtp(event) {
     event.preventDefault();
     try {
+      await detectSmtpProviderNow();
       const id = selectedSmtpId();
       const payload = collectSmtpPayload();
       await request(id ? `/email-settings/smtp/${id}` : "/email-settings/smtp", {
         method: id ? "PUT" : "POST",
         body: JSON.stringify(payload),
       });
-      showToast(t("發件配置已保存。"));
+      showToast(t("郵箱已綁定。"));
       await loadSettings();
     } catch (err) {
-      showToast(`${t("保存發件配置失敗")}：${err.message}`);
+      showToast(`${t("綁定郵箱失敗")}：${err.message}`);
     }
   }
 
@@ -244,6 +297,17 @@
     }
   }
 
+  async function clearReminderLogs() {
+    if (!confirm(t("確認清空最近提醒記錄？"))) return;
+    try {
+      const result = await request("/email-settings/reminder-logs", { method: "DELETE" });
+      showToast(`${t("提醒記錄已清空")}（${t("共")} ${result.deleted || 0} ${t("項")}）`);
+      await loadSettings();
+    } catch (err) {
+      showToast(`${t("清空提醒記錄失敗")}：${err.message}`);
+    }
+  }
+
   function clearCurrentEmail() {
     App.state.email = "";
     localStorage.removeItem("opsAgentEmail");
@@ -256,11 +320,13 @@
     loadSettings,
     renderSettings,
     fillSmtpForm,
+    detectSmtpProvider,
     saveSmtp,
     saveReminderSettings,
     saveContact,
     testSmtp,
     runReminders,
+    clearReminderLogs,
     clearCurrentEmail,
     fillContactForm,
   };

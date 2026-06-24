@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from storenotificationcircula.db.database import get_conn
+from storenotificationcircula.services.email.providers import detect_email_provider
 from storenotificationcircula.services.email.sender import send_email
 from storenotificationcircula.services.email.settings import get_setting, upsert_setting
 
@@ -86,6 +87,13 @@ def get_email_settings() -> dict[str, Any]:
         },
         "reminder_logs": logs,
     }
+
+
+@router.get("/provider")
+def get_email_provider(email: str) -> dict[str, Any]:
+    if "@" not in email:
+        raise HTTPException(status_code=400, detail="email is invalid")
+    return detect_email_provider(email)
 
 
 @router.put("/settings")
@@ -216,6 +224,15 @@ def delete_contact(contact_id: int) -> dict[str, str]:
     with get_conn() as conn:
         conn.execute("DELETE FROM email_contacts WHERE id = ?", (contact_id,))
     return {"status": "deleted"}
+
+
+@router.delete("/reminder-logs")
+def clear_reminder_logs() -> dict[str, int | str]:
+    with get_conn() as conn:
+        count_row = conn.execute("SELECT COUNT(*) AS count FROM reminder_log").fetchone()
+        deleted = int(count_row["count"]) if count_row else 0
+        conn.execute("DELETE FROM reminder_log")
+    return {"status": "deleted", "deleted": deleted}
 
 
 @router.post("/test")

@@ -44,7 +44,12 @@
     on("clearCurrentEmailBtn", "click", EmailSettings.clearCurrentEmail);
     on("newSmtpBtn", "click", () => EmailSettings.fillSmtpForm({}));
     on("testSmtpBtn", "click", EmailSettings.testSmtp);
+    on("smtp_username", "input", EmailSettings.detectSmtpProvider);
+    on("smtp_sender", "input", EmailSettings.detectSmtpProvider);
+    on("smtp_username", "change", EmailSettings.detectSmtpProvider);
+    on("smtp_sender", "change", EmailSettings.detectSmtpProvider);
     on("runRemindersBtn", "click", EmailSettings.runReminders);
+    on("clearReminderLogsBtn", "click", EmailSettings.clearReminderLogs);
     on("calendarTodayBtn", "click", Overview.goToday);
     on("calendarPrevBtn", "click", Overview.prevMonth);
     on("calendarNextBtn", "click", Overview.nextMonth);

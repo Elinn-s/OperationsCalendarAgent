@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from storenotificationcircula.db.database import generate_system_no, get_conn, log_action
 from storenotificationcircula.services.ack import add_ack_recipients
-from storenotificationcircula.services.dify_client import extract_fields
+from storenotificationcircula.services.llm.extractor import extract_fields
 from storenotificationcircula.services.pdf_parser import extract_text
 from storenotificationcircula.services.reminders import process_deadline_reminders
 
