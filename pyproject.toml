@@ -14,3 +14,6 @@ dependencies = [
     "requests>=2.34.2",
     "uvicorn>=0.47.0",
 ]
+
+[tool.vercel]
+entrypoint = "src.storenotificationcircula.api.main:app"
