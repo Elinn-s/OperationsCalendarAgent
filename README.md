@@ -37,6 +37,12 @@ http://localhost:8000/health
 - `docs/`：产品和项目说明文档，例如 `docs/PRD.md`。
 - `archive/`：旧模板接口和旧 OCR 备份，不参与当前主线运行。
 
+云端部署（如 Vercel）默认不安装本地 OCR 重依赖，以减少构建失败风险。若需在本地启用扫描版 PDF OCR，请执行：
+
+```bash
+uv sync --extra local-ocr
+```
+
 ### 本地试用配置
 
 - `APP_DATABASE_MODE = "sqlite"`：数据写入 `data/app.db`

@@ -27,6 +27,12 @@ def extract_text(pdf_path: str | Path) -> str:
     if not _local_ocr_enabled():
         raise ValueError("线上环境未开启本地 OCR。扫描版 PDF 请使用 Plan B 本地 OCR 启动方式识别。")
 
-    from storenotificationcircula.services.local_ocr.pdf_parser import extract_text_with_ocr
+    try:
+        from storenotificationcircula.services.local_ocr.pdf_parser import extract_text_with_ocr
+    except Exception as exc:  # pragma: no cover - env dependent
+        raise RuntimeError(
+            "本地 OCR 依赖未安装。请安装可选依赖 local-ocr 后重试，"
+            "例如：uv sync --extra local-ocr"
+        ) from exc
 
     return extract_text_with_ocr(pdf_path)
