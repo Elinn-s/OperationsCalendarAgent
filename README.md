@@ -21,6 +21,35 @@ http://localhost:8000/app
 http://服务器IP:8000/app
 ```
 
+## Railway 部署（推荐）
+
+项目已提供 `Dockerfile`，建议在 Railway 直接使用 Docker 部署，避免 Python 运行时探测差异带来的构建失败。
+
+### 部署步骤
+
+1. 在 Railway 新建项目并连接本仓库。
+2. Railway 会自动识别 `Dockerfile` 并构建镜像。
+3. 在 Railway Variables 中配置环境变量（至少以下必填）：
+   - `APP_DATABASE_MODE=postgres`
+   - `DATABASE_URL=<Railway Postgres 连接串>`
+   - `APP_BASE_URL=<你的 Railway 域名，例如 https://xxx.up.railway.app>`
+   - `AUTH_ENABLED=true`
+   - `APP_ADMIN_EMAIL=<管理员邮箱>`
+   - `APP_ADMIN_PASSWORD=<管理员密码>`
+   - `AUTH_COOKIE_SECURE=true`
+4. 如需 PDF 字段识别，再配置：
+   - `LLM_PROVIDER=dify` + `DIFY_API_KEY` + `DIFY_BASE_URL`
+   - 或 `LLM_PROVIDER=claude` + `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`
+5. 部署成功后访问：
+   - `https://<你的域名>/app`
+   - `https://<你的域名>/health`
+
+### Railway 注意事项
+
+- 生产环境不要使用 SQLite（容器文件系统非持久化）。
+- 默认镜像不安装本地 OCR 可选依赖，扫描版 PDF 建议走本地 Plan B。
+- 若需定时提醒，建议用 Railway Cron 调用 `POST /reminders/run`。
+
 ### FastAPI 后端
 
 项目已引入 `src/` 包结构和 FastAPI 后端。当前默认入口就是 FastAPI 前端；API 健康检查：
