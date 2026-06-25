@@ -1,7 +1,9 @@
 {
-  "build": {
-    "env": {
-      "VERCEL_CLI_VERSION": "canary"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "src/storenotificationcircula/api/main.py": {
+      "maxDuration": 60,
+      "excludeFiles": "{archive/**,local_ocr_plan_b/**,data/**,**/__pycache__/**,**/*.pyc}"
     }
   }
 }
