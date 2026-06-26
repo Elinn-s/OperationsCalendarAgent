@@ -38,6 +38,10 @@ input, select, textarea {
   color: var(--text);
 }
 textarea { min-height: 92px; resize: vertical; }
+#planRawText::placeholder {
+  color: #b8bfd2;
+  opacity: 1;
+}
 label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 600; }
 .readonly input,
 .readonly select,
@@ -54,6 +58,16 @@ label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weig
 }
 .readonly textarea {
   min-height: 64px;
+}
+#planForm {
+  border-radius: 12px;
+  transition: background .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+#planForm.is-editing {
+  border: 1px solid #d7dcfb;
+  background: #fafbff;
+  padding: 12px;
+  box-shadow: inset 0 0 0 1px rgba(94, 106, 210, .12);
 }
 h1 { margin: 6px 0 0; font-size: 24px; }
 h3 { font-size: 14px; margin: 18px 0 8px; }
@@ -201,6 +215,86 @@ p { margin: 0; }
   font-size: 13px;
 }
 .metric-row strong { color: var(--text); }
+.month-timeline-hint { margin: -4px 0 8px; }
+.with-hover-popover {
+  position: relative;
+}
+.month-metric-row {
+  align-items: center;
+}
+.notice-hover-popover {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(26, 28, 46, .12);
+  padding: 10px;
+}
+.with-hover-popover:hover .notice-hover-popover,
+.with-hover-popover:focus-within .notice-hover-popover,
+.type-count-host:hover .type-count-popover,
+.type-count-host:focus-within .type-count-popover {
+  display: block;
+}
+.notice-hover-popover-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.notice-hover-list {
+  margin: 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 4px;
+  max-height: 160px;
+  overflow: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+.notice-hover-link {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  padding: 0;
+  width: auto;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.notice-hover-link:hover {
+  color: #4654cb;
+}
+.type-count-host {
+  position: relative;
+}
+.type-count-popover {
+  left: auto;
+  right: 0;
+  min-width: 220px;
+}
+.type-legend-popover {
+  left: auto;
+  right: 0;
+  min-width: 260px;
+}
+.type-summary-popover {
+  min-width: 280px;
+}
+.kpi-popover-host {
+  position: relative;
+}
+.kpi-popover {
+  left: 12px;
+  right: 12px;
+  top: calc(100% - 2px);
+  min-width: 240px;
+}
 .pie-wrap {
   display: grid;
   grid-template-columns: 140px 1fr;

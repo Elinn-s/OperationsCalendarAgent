@@ -89,6 +89,7 @@
           </article>
           <article class="card">
             <div class="section-title"><h2>本月集中時間</h2><span class="badge" id="monthNoticeCount">0</span></div>
+            <div id="monthTimelineHint" class="meta month-timeline-hint">按本月通告日期聚合，鼠標懸停可查看當日通告。</div>
             <div id="monthTimeline" class="metric-list"></div>
           </article>
           <article class="card">
@@ -180,7 +181,10 @@
         <section class="card">
           <div class="section-title">
             <h2>通告預錄</h2>
-            <button id="reloadPlansBtn" type="button">刷新預錄</button>
+            <div class="toolbar">
+              <button id="reloadPlansBtn" type="button">刷新預錄</button>
+              <button id="newPlanBtn" type="button">新建預錄</button>
+            </div>
           </div>
           <label class="span-2">貼上活動/通告內容
             <textarea id="planRawText" placeholder="例：活動名稱：春節物料配貨&#10;負責人：張三&#10;計劃發佈日期：2026-01-20"></textarea>
@@ -211,7 +215,6 @@
               <label class="span-2">通告內容 / 備忘<textarea id="plan_notification_content"></textarea></label>
             </div>
             <div class="actions">
-              <button type="button" id="newPlanBtn">新建預錄</button>
               <button type="button" id="editPlanBtn">編輯預錄</button>
               <button type="button" id="deletePlanBtn" class="danger">刪除預錄</button>
               <button type="button" id="cancelPlanEditBtn">取消編輯</button>

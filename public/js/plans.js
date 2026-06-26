@@ -49,7 +49,9 @@
   }
 
   function setPlanEditMode(canEdit) {
+    const hasSelected = Boolean(App.state.selectedPlanId);
     $("planForm").classList.toggle("readonly", !canEdit);
+    $("planForm").classList.toggle("is-editing", canEdit);
     [
       "plan_activity_name",
       "plan_owner",
@@ -62,8 +64,9 @@
     ].forEach((id) => {
       $(id).disabled = !canEdit;
     });
-    $("editPlanBtn").hidden = canEdit || !App.state.selectedPlanId;
-    $("deletePlanBtn").hidden = !canEdit;
+    $("newPlanBtn").hidden = canEdit;
+    $("editPlanBtn").hidden = canEdit || !hasSelected;
+    $("deletePlanBtn").hidden = canEdit || !hasSelected;
     $("cancelPlanEditBtn").hidden = !canEdit;
     $("planForm").querySelector("button[type='submit']").hidden = !canEdit;
     $("markWrittenBtn").hidden = !canEdit;
@@ -115,7 +118,7 @@
     renderPlans();
   }
 
-  function clearPlanForm() {
+  function clearPlanForm(enterEdit = true) {
     App.state.selectedPlanId = null;
     $("plan_activity_name").value = "";
     $("plan_owner").value = App.state.email;
@@ -125,7 +128,7 @@
     $("plan_reminder_enabled").value = "1";
     $("plan_status").value = "已预录";
     $("plan_notification_content").value = "";
-    setPlanEditMode(true);
+    setPlanEditMode(enterEdit);
     renderPlans();
   }
 
@@ -235,7 +238,7 @@
       showToast(t("已撤銷未保存的預錄修改。"));
       return;
     }
-    clearPlanForm();
+    clearPlanForm(false);
     showToast(t("已清空新建預錄表單。"));
   }
 

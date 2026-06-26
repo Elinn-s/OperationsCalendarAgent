@@ -61,6 +61,7 @@
     "未來會在這裡接入 AI 摘要，快速總結本月通告重點、即將到期事項與需要跟進的風險。": "AI summaries will appear here in the future, covering monthly notice highlights, upcoming deadlines, and follow-up risks.",
     "通告類型分佈": "Notice Type Distribution",
     "本月集中時間": "Monthly Concentration",
+    "按本月通告日期聚合，鼠標懸停可查看當日通告。": "Grouped by notice date in this month. Hover to view notice details.",
     "需要關注": "Needs Attention",
     "進度日曆": "Progress Calendar",
     "本月": "This Month",

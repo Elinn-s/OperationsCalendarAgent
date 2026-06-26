@@ -1,4 +1,68 @@
 (function () {
+  async function openNoticeInHistory(notificationId) {
+    if (!notificationId) return;
+    switchView("history");
+    App.state.historySearched = true;
+    await window.History.selectNotice(notificationId);
+  }
+
+  function buildNoticePopover(notices, heading, className = "") {
+    const pop = document.createElement("div");
+    pop.className = `notice-hover-popover ${className}`.trim();
+    const title = document.createElement("div");
+    title.className = "notice-hover-popover-title";
+    title.textContent = heading;
+    pop.appendChild(title);
+
+    const list = document.createElement("ul");
+    list.className = "notice-hover-list";
+    if (!notices.length) {
+      const li = document.createElement("li");
+      li.textContent = t("暫無通告。");
+      list.appendChild(li);
+      pop.appendChild(list);
+      return pop;
+    }
+
+    for (const notice of notices) {
+      const li = document.createElement("li");
+      if (!notice.notification_id) {
+        li.textContent = notice.title || `(${t("無標題")})`;
+        list.appendChild(li);
+        continue;
+      }
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = "notice-hover-link";
+      link.textContent = notice.title || `(${t("無標題")})`;
+      link.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        await openNoticeInHistory(notice.notification_id);
+      });
+      li.appendChild(link);
+      list.appendChild(li);
+    }
+    pop.appendChild(list);
+    return pop;
+  }
+
+  function noticesFromRows(rows) {
+    return (rows || []).map((n) => ({
+      notification_id: n.notification_id,
+      title: n.title || `(${t("無標題")})`,
+    }));
+  }
+
+  function renderKpiPopover(kpiId, heading, notices) {
+    const value = $(kpiId);
+    const host = value && value.closest("article");
+    if (!value || !host) return;
+    host.classList.add("with-hover-popover", "kpi-popover-host");
+    const old = host.querySelector(".kpi-popover");
+    if (old) old.remove();
+    host.appendChild(buildNoticePopover(notices, heading, "kpi-popover"));
+  }
+
   function isThisMonth(raw) {
     if (!raw) return false;
     const d = new Date(String(raw).slice(0, 10) + "T00:00:00");
@@ -17,6 +81,18 @@
     }
   }
 
+  function renderMonthTimeline(rows, emptyText) {
+    const root = $("monthTimeline");
+    root.innerHTML = rows.length ? "" : `<div class="meta">${emptyText}</div>`;
+    for (const row of rows) {
+      const item = document.createElement("div");
+      item.className = "metric-row month-metric-row with-hover-popover";
+      item.innerHTML = `<strong>${escapeHtml(row.label)}</strong><span>${escapeHtml(row.value)}</span>`;
+      item.appendChild(buildNoticePopover(row.notices || [], t("通告標題"), "month-metric-popover"));
+      root.appendChild(item);
+    }
+  }
+
   function dateKey(raw) {
     return raw ? String(raw).slice(0, 10) : "";
   }
@@ -25,11 +101,51 @@
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   }
 
+  function renderTypeCountPopover(entries) {
+    const badge = $("typeCount");
+    const host = badge && badge.parentElement;
+    if (!badge || !host) return;
+    host.classList.add("type-count-host");
+    let pop = $("typeCountPopover");
+    if (!pop) {
+      pop = document.createElement("div");
+      pop.id = "typeCountPopover";
+      pop.className = "notice-hover-popover type-count-popover";
+      host.appendChild(pop);
+    }
+    pop.innerHTML = "";
+    const title = document.createElement("div");
+    title.className = "notice-hover-popover-title";
+    title.textContent = t("通告類型");
+    pop.appendChild(title);
+    const list = document.createElement("ul");
+    list.className = "notice-hover-list";
+    for (const entry of entries) {
+      const li = document.createElement("li");
+      if (!entry.notices.length) {
+        li.textContent = `${noticeTypeLabel(entry.type)} · ${entry.count} ${t("條")}`;
+        list.appendChild(li);
+        continue;
+      }
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "notice-hover-link";
+      btn.textContent = `${noticeTypeLabel(entry.type)} · ${entry.count} ${t("條")}`;
+      btn.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        await openNoticeInHistory(entry.notices[0].notification_id);
+      });
+      li.appendChild(btn);
+      list.appendChild(li);
+    }
+    pop.appendChild(list);
+  }
+
   function renderTypePie(entries) {
     const pie = $("typePie");
     const legend = $("typePieLegend");
     const colors = ["#5e6ad2", "#16a34a", "#b45309", "#dc2626", "#2563eb", "#7c3aed"];
-    const total = entries.reduce((sum, [, value]) => sum + value, 0);
+    const total = entries.reduce((sum, entry) => sum + entry.count, 0);
     if (!total) {
       pie.style.background = "#eef0fc";
       legend.innerHTML = `<div class="meta">${t("暫無類型分佈。")}</div>`;
@@ -37,21 +153,34 @@
     }
 
     let cursor = 0;
-    const slices = entries.map(([label, value], index) => {
+    const slices = entries.map((entry, index) => {
       const start = cursor;
-      const end = cursor + (value / total) * 100;
+      const end = cursor + (entry.count / total) * 100;
       cursor = end;
       return `${colors[index % colors.length]} ${start}% ${end}%`;
     });
     pie.style.background = `conic-gradient(${slices.join(", ")})`;
     legend.innerHTML = "";
-    entries.forEach(([label, value], index) => {
+    entries.forEach((entry, index) => {
       const item = document.createElement("div");
-      item.className = "pie-legend-item";
-      const percent = Math.round((value / total) * 100);
-      item.innerHTML = `<span class="pie-dot" style="background:${colors[index % colors.length]}"></span><span>${escapeHtml(noticeTypeLabel(label))} · ${value} ${t("條")} · ${percent}%</span>`;
+      item.className = "pie-legend-item with-hover-popover";
+      const percent = Math.round((entry.count / total) * 100);
+      item.innerHTML = `<span class="pie-dot" style="background:${colors[index % colors.length]}"></span><span>${escapeHtml(noticeTypeLabel(entry.type))} · ${entry.count} ${t("條")} · ${percent}%</span>`;
+      item.appendChild(buildNoticePopover(entry.notices || [], t("通告標題"), "type-legend-popover"));
       legend.appendChild(item);
     });
+  }
+
+  function renderTypeSummary(rows, emptyText) {
+    const root = $("typeSummary");
+    root.innerHTML = rows.length ? "" : `<div class="meta">${emptyText}</div>`;
+    for (const row of rows) {
+      const item = document.createElement("div");
+      item.className = "metric-row with-hover-popover";
+      item.innerHTML = `<strong>${escapeHtml(row.label)}</strong><span>${escapeHtml(row.value)}</span>`;
+      item.appendChild(buildNoticePopover(row.notices || [], t("通告標題"), "type-summary-popover"));
+      root.appendChild(item);
+    }
   }
 
   function renderAttention(rows) {
@@ -277,43 +406,65 @@
 
       const rows = App.state.notices || [];
       const monthRows = rows.filter((n) => isThisMonth(n.created_at || n.effective_start || n.deadline));
+      const runningRows = rows.filter((n) => n.status === "执行中");
+      const soonRows = rows.filter((n) => {
+        const d = daysLeft(n.deadline || n.effective_end);
+        return d >= 0 && d <= 7;
+      });
+      const overdueRows = rows.filter((n) => n.status === "已逾期");
       const attention = rows.filter((n) => {
         const d = daysLeft(n.deadline || n.effective_end);
         return d < 0 || d <= 7;
       });
 
       $("kpiMonthTotal").textContent = monthRows.length;
-      $("kpiRunning").textContent = rows.filter((n) => n.status === "执行中").length;
-      $("kpiSoon").textContent = rows.filter((n) => {
-        const d = daysLeft(n.deadline || n.effective_end);
-        return d >= 0 && d <= 7;
-      }).length;
-      $("kpiCompleted").textContent = rows.filter((n) => n.status === "已逾期").length;
+      $("kpiRunning").textContent = runningRows.length;
+      $("kpiSoon").textContent = soonRows.length;
+      $("kpiCompleted").textContent = overdueRows.length;
+      renderKpiPopover("kpiMonthTotal", t("通告標題"), noticesFromRows(monthRows));
+      renderKpiPopover("kpiRunning", t("通告標題"), noticesFromRows(runningRows));
+      renderKpiPopover("kpiSoon", t("通告標題"), noticesFromRows(soonRows));
+      renderKpiPopover("kpiCompleted", t("通告標題"), noticesFromRows(overdueRows));
 
       const typeMap = new Map();
       for (const n of rows) {
         const type = n.notice_type || "其他";
-        typeMap.set(type, (typeMap.get(type) || 0) + 1);
+        const current = typeMap.get(type) || { count: 0, notices: [] };
+        current.count += 1;
+        current.notices.push({
+          notification_id: n.notification_id,
+          title: n.title || `(${t("無標題")})`,
+        });
+        typeMap.set(type, current);
       }
-      const typeRows = [...typeMap.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .map(([label, value]) => ({ label: noticeTypeLabel(label), value: `${value} ${t("條")}` }));
+      const typeEntries = [...typeMap.entries()]
+        .map(([type, value]) => ({ type, count: value.count, notices: value.notices }))
+        .sort((a, b) => b.count - a.count);
+      const typeRows = typeEntries
+        .map((entry) => ({ label: noticeTypeLabel(entry.type), value: `${entry.count} ${t("條")}`, notices: entry.notices }));
       $("typeCount").textContent = typeRows.length;
-      renderTypePie([...typeMap.entries()].sort((a, b) => b[1] - a[1]));
-      renderMetricRows("typeSummary", typeRows, t("暫無通告類型數據。"));
+      renderTypeCountPopover(typeEntries);
+      renderTypePie(typeEntries);
+      renderTypeSummary(typeRows, t("暫無通告類型數據。"));
 
       const dayMap = new Map();
       for (const n of monthRows) {
         const raw = n.created_at || n.effective_start || n.deadline || "";
         const day = String(raw).slice(0, 10) || t("未設定");
-        dayMap.set(day, (dayMap.get(day) || 0) + 1);
+        const current = dayMap.get(day) || { count: 0, notices: [] };
+        current.count += 1;
+        current.notices.push({
+          notification_id: n.notification_id,
+          title: n.title || `(${t("無標題")})`,
+        });
+        dayMap.set(day, current);
       }
       const dayRows = [...dayMap.entries()]
-        .sort((a, b) => b[1] - a[1])
+        .sort((a, b) => b[1].count - a[1].count)
         .slice(0, 8)
-        .map(([label, value]) => ({ label, value: `${value} ${t("條")}` }));
+        .map(([label, value]) => ({ label, value: `${value.count} ${t("條")}`, notices: value.notices }));
       $("monthNoticeCount").textContent = monthRows.length;
-      renderMetricRows("monthTimeline", dayRows, t("本月暫無通告發佈記錄。"));
+      renderMonthTimeline(dayRows, t("本月暫無通告發佈記錄。"));
 
       $("attentionCount").textContent = attention.length;
       renderAttention(attention);
