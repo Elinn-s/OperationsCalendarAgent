@@ -34,6 +34,7 @@
     on("cancelBtn", "click", History.cancelNoticeEdit);
     on("deleteBtn", "click", History.deleteNotice);
     on("sendAckBtn", "click", History.sendAckEmails);
+    on("clearHistoryBtn", "click", History.clearHistory);
     on("noticeForm", "submit", History.saveNotice);
     on("planForm", "submit", Plans.savePlan);
     on("reloadEmailSettingsBtn", "click", EmailSettings.loadSettings);

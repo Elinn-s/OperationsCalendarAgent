@@ -204,6 +204,38 @@ p { margin: 0; }
 .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
 .timeline { display: grid; gap: 8px; margin-top: 12px; max-height: 220px; overflow: auto; }
 .timeline-item { border-left: 3px solid var(--line); padding: 4px 0 6px 10px; color: var(--muted); font-size: 12px; }
+.history-collapse {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  position: relative;
+}
+.history-collapse summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  padding-right: 128px;
+}
+.history-collapse summary::-webkit-details-marker {
+  display: none;
+}
+.history-collapse summary::after {
+  content: " ▾";
+  color: var(--muted);
+  font-weight: 700;
+}
+.history-collapse[open] summary::after {
+  content: " ▴";
+}
+.history-clear-btn {
+  position: absolute;
+  right: 0;
+  top: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
 .mini-list, .metric-list { display: grid; gap: 8px; max-height: 360px; overflow: auto; }
 .metric-row {
   display: flex;
@@ -216,11 +248,20 @@ p { margin: 0; }
 }
 .metric-row strong { color: var(--text); }
 .month-timeline-hint { margin: -4px 0 8px; }
+#monthTimeline {
+  overflow: visible;
+  max-height: none;
+}
 .with-hover-popover {
   position: relative;
 }
 .month-metric-row {
   align-items: center;
+  z-index: 1;
+}
+.month-metric-row:hover,
+.month-metric-row:focus-within {
+  z-index: 60;
 }
 .notice-hover-popover {
   display: none;
@@ -234,11 +275,11 @@ p { margin: 0; }
   background: #fff;
   box-shadow: 0 8px 20px rgba(26, 28, 46, .12);
   padding: 10px;
+  max-width: calc(100vw - 24px);
+  overflow-x: hidden;
 }
 .with-hover-popover:hover .notice-hover-popover,
-.with-hover-popover:focus-within .notice-hover-popover,
-.type-count-host:hover .type-count-popover,
-.type-count-host:focus-within .type-count-popover {
+.with-hover-popover:focus-within .notice-hover-popover {
   display: block;
 }
 .notice-hover-popover-title {
@@ -252,48 +293,108 @@ p { margin: 0; }
   padding-left: 16px;
   display: grid;
   gap: 4px;
-  max-height: 160px;
+  max-height: 260px;
   overflow: auto;
   color: var(--muted);
   font-size: 12px;
+}
+.notice-hover-list li {
+  min-width: 0;
 }
 .notice-hover-link {
   border: 0;
   background: transparent;
   color: var(--accent);
   padding: 0;
-  width: auto;
+  display: block;
+  width: 100%;
   text-align: left;
   text-decoration: underline;
   text-underline-offset: 2px;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .notice-hover-link:hover {
   color: #4654cb;
+}
+.month-metric-popover {
+  left: 0;
+  right: auto;
+  min-width: min(420px, calc(100vw - 24px));
+  width: min(680px, calc(100vw - 24px));
+}
+.month-metric-popover .notice-hover-list {
+  max-height: 280px;
 }
 .type-count-host {
   position: relative;
 }
 .type-count-popover {
-  left: auto;
-  right: 0;
-  min-width: 220px;
+  left: 0;
+  right: auto;
+  min-width: min(360px, calc(100vw - 24px));
+  width: min(560px, calc(100vw - 24px));
 }
 .type-legend-popover {
-  left: auto;
-  right: 0;
-  min-width: 260px;
+  left: 0;
+  right: auto;
+  min-width: min(400px, calc(100vw - 24px));
+  width: min(620px, calc(100vw - 24px));
 }
 .type-summary-popover {
-  min-width: 280px;
+  min-width: min(520px, calc(100vw - 24px));
+  width: min(760px, calc(100vw - 24px));
 }
 .kpi-popover-host {
   position: relative;
 }
 .kpi-popover {
-  left: 12px;
-  right: 12px;
+  left: 0;
+  right: auto;
   top: calc(100% - 2px);
-  min-width: 240px;
+  min-width: min(420px, calc(100vw - 24px));
+  width: min(680px, calc(100vw - 24px));
+}
+@media (max-width: 900px) {
+  .notice-hover-popover {
+    padding: 8px;
+    border-radius: 9px;
+  }
+  .notice-hover-popover-title {
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+  .notice-hover-list {
+    font-size: 11px;
+    gap: 3px;
+    max-height: 220px;
+    padding-left: 14px;
+  }
+  .month-metric-popover,
+  .type-count-popover,
+  .type-legend-popover,
+  .type-summary-popover,
+  .kpi-popover {
+    min-width: min(340px, calc(100vw - 20px));
+    width: min(560px, calc(100vw - 20px));
+  }
+}
+@media (max-width: 640px) {
+  .month-metric-popover,
+  .type-count-popover,
+  .type-legend-popover,
+  .type-summary-popover,
+  .kpi-popover {
+    left: 0;
+    right: auto;
+    min-width: 0;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+  }
+  .notice-hover-link {
+    text-underline-offset: 1px;
+  }
 }
 .pie-wrap {
   display: grid;

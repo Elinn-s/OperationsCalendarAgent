@@ -1,4 +1,27 @@
 (function () {
+  function setHistorySummaryCount(count) {
+    const summary = $("historySummary");
+    if (!summary) return;
+    summary.textContent = `${t("完整歷史")}（${count}）`;
+  }
+
+  async function clearHistory() {
+    if (!App.state.selectedId) {
+      showToast(t("請先選擇一條通告。"));
+      return;
+    }
+    if (!confirm(t("確認清空當前通告的完整歷史？"))) return;
+    try {
+      await request(`/notifications/${App.state.selectedId}/history`, { method: "DELETE" });
+      $("history").innerHTML = `<div class="meta">${t("暫無歷史。")}</div>`;
+      setHistorySummaryCount(0);
+      if ($("historyDetails")) $("historyDetails").open = false;
+      showToast(t("完整歷史已清空。"));
+    } catch (err) {
+      showToast(`${t("清空完整歷史失敗")}：${err.message}`);
+    }
+  }
+
   function filteredNotices() {
     const q = $("searchInput").value.trim().toLowerCase();
     if (!q) return App.state.notices;
@@ -8,8 +31,10 @@
 
   async function loadHistory(id) {
     const root = $("history");
+    setHistorySummaryCount(0);
     root.innerHTML = `<div class="meta">${t("載入中...")}</div>`;
     const rows = await request(`/notifications/${id}/history`);
+    setHistorySummaryCount(rows.length);
     root.innerHTML = rows.length ? "" : `<div class="meta">${t("暫無歷史。")}</div>`;
     for (const row of rows) {
       const item = document.createElement("div");
@@ -141,6 +166,7 @@
     saveNotice,
     deleteNotice,
     sendAckEmails,
+    clearHistory,
     cancelNoticeEdit,
     enableEdit() {
       if (!App.state.selectedId && !App.state.importDraft) {

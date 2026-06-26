@@ -332,3 +332,18 @@ def get_notification_history(notification_id: str) -> list[dict[str, Any]]:
             (notification_id, notification_id, notification_id),
         ).fetchall()
     return [_dict(row) for row in rows]
+
+
+@router.delete("/{notification_id}/history")
+def clear_notification_history(notification_id: str) -> dict[str, str]:
+    with get_conn() as conn:
+        existing = conn.execute(
+            "SELECT notification_id FROM notifications WHERE notification_id = ?",
+            (notification_id,),
+        ).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="notification not found")
+        conn.execute("DELETE FROM audit_log WHERE notification_id = ?", (notification_id,))
+        conn.execute("DELETE FROM reminder_log WHERE notification_id = ?", (notification_id,))
+        conn.execute("DELETE FROM email_log WHERE notification_id = ?", (notification_id,))
+    return {"status": "history_cleared"}

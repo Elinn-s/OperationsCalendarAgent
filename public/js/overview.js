@@ -101,46 +101,6 @@
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   }
 
-  function renderTypeCountPopover(entries) {
-    const badge = $("typeCount");
-    const host = badge && badge.parentElement;
-    if (!badge || !host) return;
-    host.classList.add("type-count-host");
-    let pop = $("typeCountPopover");
-    if (!pop) {
-      pop = document.createElement("div");
-      pop.id = "typeCountPopover";
-      pop.className = "notice-hover-popover type-count-popover";
-      host.appendChild(pop);
-    }
-    pop.innerHTML = "";
-    const title = document.createElement("div");
-    title.className = "notice-hover-popover-title";
-    title.textContent = t("通告類型");
-    pop.appendChild(title);
-    const list = document.createElement("ul");
-    list.className = "notice-hover-list";
-    for (const entry of entries) {
-      const li = document.createElement("li");
-      if (!entry.notices.length) {
-        li.textContent = `${noticeTypeLabel(entry.type)} · ${entry.count} ${t("條")}`;
-        list.appendChild(li);
-        continue;
-      }
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "notice-hover-link";
-      btn.textContent = `${noticeTypeLabel(entry.type)} · ${entry.count} ${t("條")}`;
-      btn.addEventListener("click", async (event) => {
-        event.stopPropagation();
-        await openNoticeInHistory(entry.notices[0].notification_id);
-      });
-      li.appendChild(btn);
-      list.appendChild(li);
-    }
-    pop.appendChild(list);
-  }
-
   function renderTypePie(entries) {
     const pie = $("typePie");
     const legend = $("typePieLegend");
@@ -169,6 +129,47 @@
       item.appendChild(buildNoticePopover(entry.notices || [], t("通告標題"), "type-legend-popover"));
       legend.appendChild(item);
     });
+  }
+
+  function renderTypeCountPopover(entries) {
+    const badge = $("typeCount");
+    const host = badge && badge.parentElement;
+    if (!badge || !host) return;
+    host.classList.add("type-count-host");
+    let pop = $("typeCountPopover");
+    if (!pop) {
+      pop = document.createElement("div");
+      pop.id = "typeCountPopover";
+      pop.className = "notice-hover-popover type-count-popover";
+      host.appendChild(pop);
+    }
+    pop.innerHTML = "";
+    const title = document.createElement("div");
+    title.className = "notice-hover-popover-title";
+    title.textContent = t("通告類型");
+    pop.appendChild(title);
+
+    const list = document.createElement("ul");
+    list.className = "notice-hover-list";
+    for (const entry of entries) {
+      const li = document.createElement("li");
+      if (!entry.notices.length) {
+        li.textContent = `${noticeTypeLabel(entry.type)} · ${entry.count} ${t("條")}`;
+        list.appendChild(li);
+        continue;
+      }
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "notice-hover-link";
+      btn.textContent = `${noticeTypeLabel(entry.type)} · ${entry.count} ${t("條")}`;
+      btn.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        await openNoticeInHistory(entry.notices[0].notification_id);
+      });
+      li.appendChild(btn);
+      list.appendChild(li);
+    }
+    pop.appendChild(list);
   }
 
   function renderTypeSummary(rows, emptyText) {
@@ -265,6 +266,7 @@
     chip.addEventListener("click", (event) => {
       event.stopPropagation();
       renderCalendarDetail(item.date, [item], true);
+      $("calendarDayDetail").scrollIntoView({ behavior: "smooth", block: "start" });
     });
     return chip;
   }
@@ -360,7 +362,10 @@
           more.textContent = `${t("另有")} ${items.length - 3} ${t("項")}`;
           cellInner.appendChild(more);
         }
-        cellInner.addEventListener("click", () => renderCalendarDetail(key, items));
+        cellInner.addEventListener("click", () => {
+          renderCalendarDetail(key, items);
+          $("calendarDayDetail").scrollIntoView({ behavior: "smooth", block: "start" });
+        });
         cell.appendChild(cellInner);
         row.appendChild(cell);
       }

@@ -131,6 +131,8 @@
     $("detailBadge").className = "badge";
     $("detailMeta").textContent = "";
     $("history").innerHTML = "";
+    if ($("historySummary")) $("historySummary").textContent = `${t("完整歷史")}（0）`;
+    if ($("historyDetails")) $("historyDetails").open = false;
     setNoticeEditMode(false);
   };
 }());

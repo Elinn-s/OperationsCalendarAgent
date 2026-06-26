@@ -172,8 +172,11 @@
               <button type="submit" class="primary">保存修改</button>
             </div>
           </form>
-          <h3>完整歷史</h3>
-          <div id="history" class="timeline"></div>
+          <details id="historyDetails" class="history-collapse">
+            <summary id="historySummary">完整歷史（0）</summary>
+            <button type="button" id="clearHistoryBtn" class="history-clear-btn">清空/重置歷史</button>
+            <div id="history" class="timeline"></div>
+          </details>
         </section>
       </section>
 
