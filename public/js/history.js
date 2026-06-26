@@ -34,13 +34,15 @@
     root.innerHTML = rows.length ? "" : `<div class="meta">${t("暫無通告。")}</div>`;
     for (const n of rows) {
       const deadline = n.deadline || n.effective_end || "";
+      const ack = noticeAckLabel(n);
+      const statusText = statusLabel(n.status, deadline);
       const btn = document.createElement("button");
       btn.className = "notice-item" + (n.notification_id === App.state.selectedId ? " active" : "");
       btn.type = "button";
       btn.innerHTML = `
         <div class="row">
           <div class="title">${escapeHtml(n.title || `(${t("無標題")})`)}</div>
-          <span class="${statusBadgeClass(n.status, deadline)}">${escapeHtml(statusLabel(n.status, deadline))}</span>
+          <span class="${statusBadgeClass(n.status, deadline)}">${escapeHtml(ack ? `${statusText} · ${ack}` : statusText)}</span>
         </div>
         <div class="meta">${escapeHtml(n.system_no || t("未編號"))} · ${t("截止")} ${escapeHtml(deadline || t("未設定"))}</div>
         <div class="meta">${t("匯入時間")} ${escapeHtml(formatDateTime(n.created_at))}</div>

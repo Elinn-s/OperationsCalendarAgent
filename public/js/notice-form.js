@@ -4,7 +4,7 @@
     ["system_no", "系統編號", "input", { disabled: true }],
     ["doc_ref", "檔案編號", "input"],
     ["title", "標題 *", "input", { required: true, span: true }],
-    ["status", "狀態", "select", { options: [["草稿", "草稿"], ["执行中", "執行中"], ["已回执", "已回執"], ["已完成", "已完成"]] }],
+    ["status", "狀態", "select", { options: [["草稿", "草稿"], ["执行中", "執行中"], ["已逾期", "已逾期"]] }],
     ["notice_type", "通告類型", "select", { options: [["安全合规", "安全合規"], ["日常营运", "日常營運"], ["活动通知", "活動通知"], ["人事行政", "人事行政"], ["其他", "其他"]] }],
     ["issuer", "發佈人 / Issuer", "input"],
     ["owner", "負責人 / Owner", "input"],
@@ -61,7 +61,9 @@
     const badgeEl = $("detailBadge");
     const metaEl = $("detailMeta");
     titleEl.textContent = notice.notification_id ? t("通告詳情") : t("識別結果詳情");
-    badgeEl.textContent = notice.notification_id ? statusLabel(notice.status, notice.deadline || notice.effective_end) : t("待保存");
+    const ackLabel = noticeAckLabel(notice);
+    const statusText = statusLabel(notice.status, notice.deadline || notice.effective_end);
+    badgeEl.textContent = notice.notification_id ? (ackLabel ? `${statusText} · ${ackLabel}` : statusText) : t("待保存");
     badgeEl.className = statusBadgeClass(notice.status, notice.deadline || notice.effective_end);
     if (metaEl) {
       metaEl.textContent = notice.notification_id

@@ -52,7 +52,6 @@
     "登入": "Log in",
     "請使用系統管理員提供的賬號密碼。登入後才可查看通告、預錄、郵箱設定與提醒資料。": "Use the account provided by the administrator. After login, you can view notices, pre-registrations, email settings, and reminder data.",
     "本月通告總數": "Notices This Month",
-    "執行中 / 已回執": "Running / Acknowledged",
     "正在執行中": "In Progress",
     "一週內截止": "Due Within 7 Days",
     "一週內即將到期": "Due Within 7 Days",
@@ -81,6 +80,9 @@
     "執行中": "Running",
     "已回執": "Acknowledged",
     "已完成": "Completed",
+    "回執：待確認": "Ack: Pending",
+    "回執：部分確認": "Ack: Partially Confirmed",
+    "回執：已確認": "Ack: Confirmed",
     "搜尋": "Search",
     "通告詳情": "Notice Details",
     "未選擇": "Not Selected",
@@ -406,18 +408,24 @@
     const labels = {
       "草稿": t("草稿"),
       "执行中": t("執行中"),
-      "已回执": t("已回執"),
-      "已完成": t("已完成"),
-      "已逾期": `${t("執行中")} · ${t("已逾期")}`,
+      "已逾期": t("已逾期"),
       "已预录": t("已預錄"),
       "已编写": t("已編寫"),
       "已发布": t("已發佈"),
     };
     const base = labels[status] || status || t("未填");
     const days = daysLeft(deadline);
-    if (["执行中", "已回执"].includes(status) && days < 0) return `${base} · ${t("已逾期")}`;
-    if (["执行中", "已回执"].includes(status) && days >= 0 && days <= 7) return `${base} · ${t("即將截止")}`;
+    if (status === "执行中" && days >= 0 && days <= 7) return `${base} · ${t("即將截止")}`;
     return base;
+  };
+
+  window.noticeAckLabel = function noticeAckLabel(notice = {}) {
+    const total = Number(notice.ack_total_count || 0);
+    const confirmed = Number(notice.ack_confirmed_count || 0);
+    if (!total) return "";
+    if (confirmed >= total) return t("回執：已確認");
+    if (confirmed > 0) return t("回執：部分確認");
+    return t("回執：待確認");
   };
 
   window.noticeTypeLabel = function noticeTypeLabel(type) {
@@ -432,9 +440,9 @@
 
   window.statusBadgeClass = function statusBadgeClass(status, deadline) {
     const days = daysLeft(deadline);
-    if (days < 0) return "badge red";
+    if (status === "已逾期") return "badge red";
     if (days >= 0 && days <= 7) return "badge amber";
-    if (status === "执行中" || status === "已回执" || status === "已完成") return "badge green";
+    if (status === "执行中") return "badge green";
     return "badge";
   };
 

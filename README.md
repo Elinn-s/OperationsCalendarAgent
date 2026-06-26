@@ -21,34 +21,32 @@ http://localhost:8000/app
 http://服务器IP:8000/app
 ```
 
-## Railway 部署（推荐）
+## Render 部署（推荐）
 
-项目已提供 `Dockerfile`，建议在 Railway 直接使用 Docker 部署，避免 Python 运行时探测差异带来的构建失败。
+项目已提供 `render.yaml`，可通过 Render Blueprint 一键创建 Web Service + PostgreSQL。
 
 ### 部署步骤
 
-1. 在 Railway 新建项目并连接本仓库。
-2. Railway 会自动识别 `Dockerfile` 并构建镜像。
-3. 在 Railway Variables 中配置环境变量（至少以下必填）：
-   - `APP_DATABASE_MODE=postgres`
-   - `DATABASE_URL=<Railway Postgres 连接串>`
-   - `APP_BASE_URL=<你的 Railway 域名，例如 https://xxx.up.railway.app>`
-   - `AUTH_ENABLED=true`
-   - `APP_ADMIN_EMAIL=<管理员邮箱>`
-   - `APP_ADMIN_PASSWORD=<管理员密码>`
-   - `AUTH_COOKIE_SECURE=true`
-4. 如需 PDF 字段识别，再配置：
-   - `LLM_PROVIDER=dify` + `DIFY_API_KEY` + `DIFY_BASE_URL`
-   - 或 `LLM_PROVIDER=claude` + `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`
-5. 部署成功后访问：
-   - `https://<你的域名>/app`
-   - `https://<你的域名>/health`
+1. 在 Render 新建 Blueprint，连接本仓库。
+2. Render 会读取 `render.yaml`，自动创建：
+   - Web Service：`ops-calendar-agent`
+   - PostgreSQL：`ops-calendar-db`
+3. 在 Render 的环境变量中补齐 `sync: false` 的项目（至少）：
+   - `APP_ADMIN_EMAIL`
+   - `APP_ADMIN_PASSWORD`
+   - `APP_BASE_URL`（填写你的 Render 公网域名）
+   - `DIFY_API_KEY`、`DIFY_BASE_URL`（如使用 Dify）
+   - SMTP 相关变量（如需默认发信账号）
+4. 部署成功后访问：
+   - `https://<你的Render域名>/app`
+   - `https://<你的Render域名>/health`
 
-### Railway 注意事项
+### Render 注意事项
 
-- 生产环境不要使用 SQLite（容器文件系统非持久化）。
-- 默认镜像不安装本地 OCR 可选依赖，扫描版 PDF 建议走本地 Plan B。
-- 若需定时提醒，建议用 Railway Cron 调用 `POST /reminders/run`。
+- 生产环境不要使用 SQLite（实例重启/重建会丢失本地文件）。
+- `APP_DATABASE_MODE` 已在 `render.yaml` 固定为 `postgres`。
+- 默认不安装本地 OCR 可选依赖，扫描版 PDF 建议走本地 Plan B。
+- 如需无人值守提醒，可使用 Render Cron 任务调用 `POST /reminders/run`。
 
 ### FastAPI 后端
 

@@ -59,13 +59,15 @@
     root.innerHTML = rows.length ? "" : `<div class="meta">${t("暫無需要關注的通告。")}</div>`;
     for (const n of rows.slice(0, 6)) {
       const deadline = n.deadline || n.effective_end || "";
+      const ack = noticeAckLabel(n);
+      const statusText = statusLabel(n.status, deadline);
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "notice-item";
       btn.innerHTML = `
         <div class="row">
           <div class="title">${escapeHtml(n.title || `(${t("無標題")})`)}</div>
-          <span class="${statusBadgeClass(n.status, deadline)}">${escapeHtml(statusLabel(n.status, deadline))}</span>
+          <span class="${statusBadgeClass(n.status, deadline)}">${escapeHtml(ack ? `${statusText} · ${ack}` : statusText)}</span>
         </div>
         <div class="meta">${escapeHtml(n.system_no || t("未編號"))} · ${t("截止")} ${escapeHtml(deadline || t("未設定"))}</div>
       `;
@@ -92,16 +94,14 @@
       } else if (left <= 7) {
         kind = "soon";
         label = t("即將截止");
-      } else if (n.status === "已完成" || n.status === "已回执") {
-        kind = "done";
-        label = statusLabel(n.status);
       }
+      const ack = noticeAckLabel(n);
       items.push({
         date: deadline,
         kind,
         label,
         title: n.title || `(${t("無標題")})`,
-        meta: `${n.system_no || t("未編號")} · ${statusLabel(n.status, deadline)}`,
+        meta: `${n.system_no || t("未編號")} · ${statusLabel(n.status, deadline)}${ack ? ` · ${ack}` : ""}`,
         open: () => {
           switchView("history");
           App.state.historySearched = true;
@@ -283,12 +283,12 @@
       });
 
       $("kpiMonthTotal").textContent = monthRows.length;
-      $("kpiRunning").textContent = rows.filter((n) => ["执行中", "已回执"].includes(n.status)).length;
+      $("kpiRunning").textContent = rows.filter((n) => n.status === "执行中").length;
       $("kpiSoon").textContent = rows.filter((n) => {
         const d = daysLeft(n.deadline || n.effective_end);
         return d >= 0 && d <= 7;
       }).length;
-      $("kpiCompleted").textContent = rows.filter((n) => n.status === "已完成").length;
+      $("kpiCompleted").textContent = rows.filter((n) => n.status === "已逾期").length;
 
       const typeMap = new Map();
       for (const n of rows) {

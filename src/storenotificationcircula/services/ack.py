@@ -177,23 +177,6 @@ def confirm_ack_token(token: str) -> tuple[str, dict[str, Any] | None]:
                 now,
             ),
         )
-        remaining = conn.execute(
-            """
-            SELECT COUNT(*) AS pending_count
-            FROM ack_recipients
-            WHERE notification_id = ? AND confirmed_at IS NULL
-            """,
-            (row["notification_id"],),
-        ).fetchone()
-        if remaining and int(remaining["pending_count"] or 0) == 0:
-            conn.execute(
-                """
-                UPDATE notifications
-                SET status = '已回执', updated_at = ?
-                WHERE notification_id = ? AND status IN ('执行中')
-                """,
-                (now, row["notification_id"]),
-            )
         updated = dict(row)
         updated["confirmed_at"] = now
         updated["status"] = "已回执"

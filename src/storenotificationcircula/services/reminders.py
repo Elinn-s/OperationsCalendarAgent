@@ -273,7 +273,7 @@ def process_deadline_reminders(send_emails: bool = True, notification_id: str | 
         sql = """
             SELECT *
             FROM notifications
-            WHERE status IN ('执行中', '已回执')
+            WHERE status IN ('执行中', '已逾期')
               AND COALESCE(deadline, effective_end) IS NOT NULL
         """
         params: list[str] = []
@@ -298,6 +298,12 @@ def process_deadline_reminders(send_emails: bool = True, notification_id: str | 
 
             reminder_days = _row_reminder_days(row, _reminder_days())
             if days_left < 0:
+                if row.get("status") != "已逾期":
+                    conn.execute(
+                        "UPDATE notifications SET status = '已逾期', updated_at = ? WHERE notification_id = ?",
+                        (datetime.now().isoformat(), row["notification_id"]),
+                    )
+                    stats["marked_overdue"] += 1
                 reminder_type = "逾期升级"
                 recipients = sorted(set(recipients + _escalation_recipients()))
                 subject = f"[逾期升级] {title}"

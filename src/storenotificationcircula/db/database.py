@@ -369,11 +369,29 @@ def init_db() -> None:
         conn.execute("UPDATE notifications SET impact_role = target_scope WHERE (impact_role IS NULL OR impact_role = '') AND target_scope IS NOT NULL")
         conn.execute("UPDATE notifications SET deadline = effective_end WHERE (deadline IS NULL OR deadline = '') AND effective_end IS NOT NULL")
         conn.execute("UPDATE notifications SET status = '草稿' WHERE status IN ('Draft', '草稿', '待审批', '待发布')")
-        conn.execute("UPDATE notifications SET status = '执行中' WHERE status IN ('Sent', '已发送', '执行中', '已发布', 'Overdue', '已截止', '已过期', '已逾期')")
-        conn.execute("UPDATE notifications SET status = '已回执' WHERE status IN ('Acknowledged', '已回执')")
-        conn.execute("UPDATE notifications SET status = '已完成' WHERE status IN ('Completed', '已完成', '已归档')")
+        conn.execute("UPDATE notifications SET status = '执行中' WHERE status IN ('Sent', '已发送', '执行中', '已发布', '已回执', '已完成', '已归档', 'Acknowledged', 'Completed')")
+        conn.execute("UPDATE notifications SET status = '已逾期' WHERE status IN ('Overdue', '已截止', '已过期', '已逾期')")
         conn.execute("UPDATE plans SET status = '已编写' WHERE status IN ('待发布', '未开始', '制定中')")
         conn.execute("UPDATE notifications SET notice_type = '其他' WHERE notice_type IS NULL OR notice_type = ''")
+
+        overdue_rows = conn.execute(
+            "SELECT notification_id, status, deadline, effective_end FROM notifications WHERE status <> '草稿'"
+        ).fetchall()
+        today = date.today()
+        for row in overdue_rows:
+            raw_deadline = row["deadline"] or row["effective_end"]
+            if not raw_deadline:
+                continue
+            try:
+                is_overdue = date.fromisoformat(str(raw_deadline)[:10]) < today
+            except ValueError:
+                continue
+            target_status = "已逾期" if is_overdue else "执行中"
+            if row["status"] != target_status:
+                conn.execute(
+                    "UPDATE notifications SET status = ? WHERE notification_id = ?",
+                    (target_status, row["notification_id"]),
+                )
 
         # 补全缺失 system_no
         missing = conn.execute(

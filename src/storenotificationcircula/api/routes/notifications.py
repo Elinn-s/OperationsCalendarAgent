@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -54,6 +54,25 @@ def _sync_dates(payload: NotificationPayload) -> tuple[str | None, str | None]:
     return deadline, effective_end
 
 
+def _normalize_status(raw_status: str, deadline: str | None) -> str:
+    status = (raw_status or "").strip()
+    if status == "已逾期":
+        return "已逾期"
+    if status in {"执行中", "已回执", "已完成", "已发送", "已发布"}:
+        normalized = "执行中"
+    elif status == "草稿":
+        normalized = "草稿"
+    else:
+        normalized = "草稿"
+    if normalized != "草稿" and deadline:
+        try:
+            if date.fromisoformat(str(deadline)[:10]) < date.today():
+                return "已逾期"
+        except ValueError:
+            pass
+    return normalized
+
+
 def _attach_default_reminder(notification_id: str, email: str) -> int:
     email = (email or "").strip().lower()
     if not email:
@@ -70,7 +89,20 @@ def list_notifications(
     owner: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
 ) -> list[dict[str, Any]]:
-    sql = "SELECT * FROM notifications WHERE 1=1"
+    sql = """
+        SELECT n.*,
+               COALESCE(ar.total_count, 0) AS ack_total_count,
+               COALESCE(ar.confirmed_count, 0) AS ack_confirmed_count
+        FROM notifications n
+        LEFT JOIN (
+            SELECT notification_id,
+                   COUNT(*) AS total_count,
+                   SUM(CASE WHEN confirmed_at IS NOT NULL THEN 1 ELSE 0 END) AS confirmed_count
+            FROM ack_recipients
+            GROUP BY notification_id
+        ) ar ON ar.notification_id = n.notification_id
+        WHERE 1=1
+    """
     params: list[Any] = []
     if status:
         sql += " AND status = ?"
@@ -78,7 +110,7 @@ def list_notifications(
     if owner:
         sql += " AND owner LIKE ?"
         params.append(f"%{owner}%")
-    sql += " ORDER BY created_at DESC LIMIT ?"
+    sql += " ORDER BY n.created_at DESC LIMIT ?"
     params.append(limit)
     with get_conn() as conn:
         return [_dict(row) for row in conn.execute(sql, params).fetchall()]
@@ -110,7 +142,20 @@ async def extract_pdf_fields(request: Request, filename: str = Query(default="up
 def get_notification(notification_id: str) -> dict[str, Any]:
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT * FROM notifications WHERE notification_id = ?",
+            """
+            SELECT n.*,
+                   COALESCE(ar.total_count, 0) AS ack_total_count,
+                   COALESCE(ar.confirmed_count, 0) AS ack_confirmed_count
+            FROM notifications n
+            LEFT JOIN (
+                SELECT notification_id,
+                       COUNT(*) AS total_count,
+                       SUM(CASE WHEN confirmed_at IS NOT NULL THEN 1 ELSE 0 END) AS confirmed_count
+                FROM ack_recipients
+                GROUP BY notification_id
+            ) ar ON ar.notification_id = n.notification_id
+            WHERE n.notification_id = ?
+            """,
             (notification_id,),
         ).fetchone()
     if not row:
@@ -127,6 +172,7 @@ def create_notification(payload: NotificationPayload) -> dict[str, Any]:
     notification_id = str(uuid.uuid4())
     system_no = payload.system_no.strip() or generate_system_no()
     deadline, effective_end = _sync_dates(payload)
+    normalized_status = _normalize_status(payload.status, deadline)
     actor = payload.actor_email or payload.reminder_email or "API"
 
     with get_conn() as conn:
@@ -158,7 +204,7 @@ def create_notification(payload: NotificationPayload) -> dict[str, Any]:
                 deadline,
                 payload.effective_start,
                 effective_end,
-                payload.status.strip() or "草稿",
+                normalized_status,
                 json.dumps(payload.tags, ensure_ascii=False),
                 payload.reminder_days.strip(),
                 now,
@@ -186,6 +232,7 @@ def update_notification(notification_id: str, payload: NotificationPayload) -> d
 
     now = datetime.now().isoformat()
     actor = payload.actor_email or payload.reminder_email or "API"
+    normalized_status = _normalize_status(payload.status, deadline)
 
     with get_conn() as conn:
         existing = conn.execute(
@@ -222,7 +269,7 @@ def update_notification(notification_id: str, payload: NotificationPayload) -> d
                 deadline,
                 payload.effective_start,
                 effective_end,
-                payload.status.strip() or "草稿",
+                normalized_status,
                 json.dumps(payload.tags, ensure_ascii=False),
                 payload.reminder_days.strip(),
                 now,
